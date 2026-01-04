@@ -1,0 +1,188 @@
+# -------------------------------------------------------------------
+# Dataset registry + aggregation plan
+# Inputs: your private HF dataset repos (shots stored as columns)
+# Outputs: three aggregated HF dataset repos with split-per-shot naming:
+#   train_0 / eval_0 / test_0
+#   train_2 / eval_2 / test_2
+#   train_5 / eval_5 / test_5
+# -------------------------------------------------------------------
+
+hf:
+  org_or_user: "Despina"
+  private: true
+
+# -------------------------------------------------------------------
+# Source datasets (already exist on HF)
+# Shot prompts are stored as columns: prompt_0_shot, prompt_2_shot, prompt_5_shot
+# Splits are: train / validation / test
+# -------------------------------------------------------------------
+sources:
+  # --------------------
+  # General domain (Table 1)
+  # --------------------
+  tacred:
+    repo: "Despina/tacred"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  semeval2010_task8:
+    repo: "Despina/semeval2010_task8"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  conll04:
+    repo: "Despina/conll04"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  nyt11:
+    repo: "Despina/nyt_11"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  gids:
+    repo: "Despina/gids"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  re_docred:
+    repo: "Despina/re-docred"
+    subset: "default"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  rebel:
+    repo: "Despina/rebel-dataset"
+    subset: "subsampled"
+    domain: "general"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  # --------------------
+  # Literature domain (Table 1)
+  # --------------------
+  biographical:
+    repo: "Despina/biographical"
+    subset: "subsampled"
+    domain: "literature"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+  pg_fiction:
+    repo: "Despina/project-gutenberg-fiction-relations"
+    subset: "default"
+    domain: "literature"
+    splits: { train: "train", eval: "validation", test: "test" }
+    columns:
+      prompt_0: "prompt_0_shot"
+      prompt_2: "prompt_2_shot"
+      prompt_5: "prompt_5_shot"
+      label: "relation"
+
+# -------------------------------------------------------------------
+# DAPT corpora sources (for Domain-Adaptive Pretraining stage)
+# These are not part of GenTune/LitTune/MixTune RE finetuning mixes.
+# -------------------------------------------------------------------
+dapt_sources:
+  litbank:
+    repo: "Despina/litBank"
+    subset: "default"
+    splits: { train: "train", eval: "validation", test: "test" }
+    text_column: "original_text"
+  bookcorpus:
+    repo: "Despina/bookcorpus-deduplicated"
+    subset: "default"
+    splits: { train: "train", eval: "validation", test: "test" }
+    text_column: "text"
+
+# -------------------------------------------------------------------
+# Aggregated output datasets (to create/push on HF, private repos)
+# -------------------------------------------------------------------
+aggregates:
+  gentune:
+    output_repo: "Despina/re_gentune"
+    private: true
+    includes: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel ]
+
+  littune:
+    output_repo: "Despina/re_littune"
+    private: true
+    includes: [ biographical, pg_fiction ]
+
+  mixtune:
+    output_repo: "Despina/re_mixtune"
+    private: true
+    mode: "domain_balanced"         # domain_balanced | dataset_balanced
+    shuffle_seed: 42
+    cap_per_source_dataset: null    # e.g. 200000 if you want to cap large sources
+    includes_general: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel ]
+    includes_literature: [ biographical, pg_fiction ]
+
+# -------------------------------------------------------------------
+# How to map shot-columns -> aggregated splits
+# You said you want split-per-shot naming on the aggregates.
+# -------------------------------------------------------------------
+shots:
+  shot_values: [ 0, 2, 5 ]
+  prompt_column_by_shot:
+    "0": "prompt_0"
+    "2": "prompt_2"
+    "5": "prompt_5"
+
+# Final split naming for aggregated datasets (HF DatasetDict splits)
+# train/validation/test  → train_{shot}/eval_{shot}/test_{shot}
+output_splits:
+  train: "train_{shot}"
+  eval: "eval_{shot}"
+  test: "test_{shot}"
+
+# -------------------------------------------------------------------
+# (Optional but recommended) include dataset name in every aggregated row
+# so you can stratify by source dataset later.
+# -------------------------------------------------------------------
+add_metadata:
+  add_dataset_name_field: true
+  dataset_name_field: "dataset"

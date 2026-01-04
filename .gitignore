@@ -1,0 +1,56 @@
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.iml
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+.conda/
+
+# Python packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Logs and runtime artifacts
+logs/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Local runs: checkpoints, logs, artifacts
+runs/
+
+# Hugging Face / datasets caches
+.cache/
+~/.cache/
+datasets_cache/
+hf_cache/
+huggingface_cache/
+
+# Credentials / environment files
+.env.*
+.env
+*.secret
+*.token
+
+# Misc
+.tmp/
+tmp/
