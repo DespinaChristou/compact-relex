@@ -152,12 +152,32 @@ def run_dapt_job(
     tok_bs = int(pre.get("tokenize_batch_size", 1000))
     grp_bs = int(pre.get("group_batch_size", 1000))
 
+    # Token-windowing settings (prevents huge sequences per book)
+    tok_max_cfg = pre.get("tokenizer_max_length", None)
+    tok_stride = int(pre.get("tokenizer_stride", 0))
+
+    # Fallback token max length if not provided in config
+    tok_cap_default = 8192
+    model_max = getattr(tokenizer, "model_max_length", tok_cap_default)
+    tok_cap_fallback = min(int(model_max), tok_cap_default) if int(model_max) < 10 ** 9 else tok_cap_default
+    tok_max = int(tok_max_cfg) if tok_max_cfg is not None else tok_cap_fallback
+
+    def tokenize_fn(batch):
+        # IMPORTANT:
+        # return_overflowing_tokens=True splits each long document into multiple windows of length tok_max.
+        # This avoids giant token sequences and covers the entire book (not just the first tok_max tokens).
+        return tokenizer(
+            batch["text"],
+            return_special_tokens_mask=False,
+            truncation=True,
+            max_length=tok_max,
+            stride=tok_stride,
+            return_overflowing_tokens=True,
+        )
+
     train_raw = _load_and_stack_corpora(corpora, which_split="train")
     if max_train_samples is not None:
         train_raw = train_raw.select(range(min(int(max_train_samples), len(train_raw))))
-
-    def tokenize_fn(batch):
-        return tokenizer(batch["text"], return_special_tokens_mask=False, truncation=False)
 
     train_tok = train_raw.map(
         tokenize_fn,
@@ -167,6 +187,13 @@ def run_dapt_job(
         remove_columns=["text"],
         desc=f"[DAPT:{model_id}] tokenizing train",
     )
+
+    # Drop overflow bookkeeping (not needed for LM training)
+    if "overflow_to_sample_mapping" in train_tok.column_names:
+        train_tok = train_tok.remove_columns(["overflow_to_sample_mapping"])
+    if "num_truncated_tokens" in train_tok.column_names:
+        train_tok = train_tok.remove_columns(["num_truncated_tokens"])
+
     train_lm = train_tok.map(
         lambda b: _group_texts(b, max_seq_length),
         batched=True,
@@ -191,6 +218,12 @@ def run_dapt_job(
             remove_columns=["text"],
             desc=f"[DAPT:{model_id}] tokenizing eval",
         )
+
+        if "overflow_to_sample_mapping" in eval_tok.column_names:
+            eval_tok = eval_tok.remove_columns(["overflow_to_sample_mapping"])
+        if "num_truncated_tokens" in eval_tok.column_names:
+            eval_tok = eval_tok.remove_columns(["num_truncated_tokens"])
+
         eval_lm = eval_tok.map(
             lambda b: _group_texts(b, max_seq_length),
             batched=True,

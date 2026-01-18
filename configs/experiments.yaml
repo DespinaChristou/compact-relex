@@ -10,7 +10,7 @@ paths:
 shots: [ 0, 2, 5 ]
 
 dapt:
-  enabled: false
+  enabled: true
   output_subdir: dapt
   corpora:
     - repo: Despina/litBank
@@ -35,6 +35,8 @@ dapt:
     num_proc: 8
     tokenize_batch_size: 1000
     group_batch_size: 1000
+    tokenizer_max_length: 8192
+    tokenizer_stride: 0
 
   # Optional: cap the number of raw rows processed to avoid heavy preprocessing
   # when using max_steps. Set to null to process all.
@@ -43,7 +45,7 @@ dapt:
 
 
 finetune:
-  enabled: true
+  enabled: false
   output_subdir: finetune
 
   # Optional filters (all are optional; omit for "run everything")
