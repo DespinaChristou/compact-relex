@@ -17,12 +17,8 @@ dapt:
       split: train
       eval_split: validation
       text_column: original_text
-    - repo: Despina/bookcorpus-deduplicated
-      split: train
-      eval_split: validation
-      text_column: text
 
-  max_seq_length: 2048
+  max_seq_length: 1024
   learning_rate: 2.0e-5
   num_train_epochs: 1
   per_device_train_batch_size: 1
@@ -30,6 +26,8 @@ dapt:
   warmup_ratio: 0.03
   weight_decay: 0.1
   save_steps: 1000
+  eval_strategy: steps
+  eval_steps: 1000
   logging_steps: 50
 
 finetune:
@@ -50,9 +48,9 @@ finetune:
     re_gentune: Despina/re_gentune
     re_littune: Despina/re_littune
     re_mixtune: Despina/re_mixtune
-  max_seq_length: 2048
+  max_seq_length: 1024
   learning_rate: 2.0e-5
-  num_train_epochs: 3
+  num_train_epochs: 2
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 16
   warmup_ratio: 0.03
@@ -97,9 +95,6 @@ finetune:
 # - `id` is the human-readable model_id used in naming outputs and HF repos.
 # - `base_model` is the HF model identifier to load from.
 models:
-  - id: SmolLM2-135M-Instruct
-    base_model: HuggingFaceTB/SmolLM2-135M-Instruct
-    family: smollm
   - id: SmolLM2-360M-Instruct
     base_model: HuggingFaceTB/SmolLM2-360M-Instruct
     family: smollm
