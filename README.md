@@ -166,18 +166,64 @@ python src/build_mixtures.py --config configs/datasets.yaml --only mixtune
 
 ---
 
-## Step 2 — Run all experiments (DAPT → finetune)
+## Step 2 — Run experiments (DAPT and/or finetune)
 
-```bash
-python src/run_all.py --config configs/experiments.yaml
+> Note: the project uses imports like `from src...`, so it is recommended to run scripts as modules:
+>
+> `python -m src.run_all ...`
+>
+> This avoids `ModuleNotFoundError: No module named 'src'`.
+
+### Single GPU (one process)
+
+Run DAPT only:
+```bash 
+python -m src.run_all --config configs/experiments.yaml --stage dapt
 ```
 
-This script:
+Run finetuning only:
+```bash 
+python -m src.run_all --config configs/experiments.yaml --stage finetune
+```
 
-1. Runs **DAPT once per base model** (if enabled).
-2. Fine-tunes **all base models and all DAPT models** (i.e., 2× models total) on all datasets × shots.
-3. Saves all outputs locally under `runs/`.
-4. Pushes each trained model to a **private Hugging Face repo**.
+Run both stages sequentially (DAPT then finetune) in a single process:
+
+```
+bash python -m src.run_all --config configs/experiments.yaml --stage all
+```
+
+### Multi-GPU (job-level parallelism)
+
+This repo parallelizes by **sharding the experiment list** across multiple independent worker processes (one per GPU).
+This is simple and efficient because each training run is independent.
+
+Run on a 4-GPU node:
+
+#### 1) DAPT in parallel (sharded by model index)
+
+```bash
+ CUDA_VISIBLE_DEVICES=0 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 0 & 
+ CUDA_VISIBLE_DEVICES=1 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 1 & 
+ CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 2 & 
+ CUDA_VISIBLE_DEVICES=3 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 3 & 
+ wait
+```
+
+#### 2) Finetuning in parallel (sharded by expanded job index)
+
+```bash
+ CUDA_VISIBLE_DEVICES=0 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 0 & 
+ CUDA_VISIBLE_DEVICES=1 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 1 & 
+ CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 2 & 
+ CUDA_VISIBLE_DEVICES=3 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 3 & 
+ wait
+```
+
+#### Notes
+
+- Set `dapt.enabled: true/false` and `finetune.enabled: true/false` in `configs/experiments.yaml` to control what runs.
+- If `finetune.include_dapt_models: true`, make sure the DAPT stage has completed (and DAPT checkpoints were pushed)
+  before starting finetuning.
 
 ---
 
