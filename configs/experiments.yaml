@@ -32,10 +32,10 @@ dapt:
   logging_steps: 100
 
   preprocessing:
-    num_proc: 8
-    tokenize_batch_size: 1000
-    group_batch_size: 1000
-    tokenizer_max_length: 8192
+    num_proc: 2
+    tokenize_batch_size: 64
+    group_batch_size: 128
+    tokenizer_max_length: 2048
     tokenizer_stride: 0
 
   # Optional: cap the number of raw rows processed to avoid heavy preprocessing

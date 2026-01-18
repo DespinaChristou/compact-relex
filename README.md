@@ -217,6 +217,13 @@ Run on a 4-GPU node:
  CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 2 & 
  CUDA_VISIBLE_DEVICES=3 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 3 & 
  wait
+ 
+CUDA_VISIBLE_DEVICES=0 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 0 > logs/dapt0.log 2>&1 &
+CUDA_VISIBLE_DEVICES=1 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 1 > logs/dapt1.log 2>&1 &
+CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 2 > logs/dapt2.log 2>&1 &
+CUDA_VISIBLE_DEVICES=3 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 3 > logs/dapt3.log 2>&1 &
+wait
+
 ```
 
 #### Notes
