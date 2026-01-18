@@ -201,6 +201,81 @@ def _tokenize_sft_row(
     return {"input_ids": input_ids, "attention_mask": attention_mask, "labels": labels}
 
 
+def _tokenize_sft_batch(
+        batch: Dict[str, Any],
+        *,
+        tokenizer,
+        system_prompt: str,
+        max_length: int,
+) -> Dict[str, Any]:
+    """
+    Batched version used for speed.
+
+    Input batch schema (from HF Datasets):
+      batch["prompt"]   -> List[str]
+      batch["relation"] -> List[str]
+
+    We build two parallel text lists:
+      - prompt_texts: chat-formatted prompt with generation prompt
+      - full_texts:   chat-formatted prompt + assistant answer
+
+    Then tokenize each list in one tokenizer call (faster than per-row),
+    and build labels by masking the prompt tokens with -100.
+
+    Returns:
+      {"input_ids": List[List[int]], "attention_mask": List[List[int]], "labels": List[List[int]]}
+    """
+    prompts = batch.get("prompt", None)
+    relations = batch.get("relation", None)
+    if prompts is None or relations is None:
+        raise ValueError("Expected batched columns: prompt, relation")
+
+    prompt_texts: list[str] = []
+    full_texts: list[str] = []
+
+    for p, r in zip(prompts, relations):
+        assistant_answer = str(r).strip()
+        prompt_text, full_text = _build_chat_texts(
+            tokenizer=tokenizer,
+            system_prompt=system_prompt,
+            user_prompt=str(p),
+            assistant_answer=assistant_answer,
+        )
+        prompt_texts.append(prompt_text)
+        full_texts.append(full_text)
+
+    prompt_enc = tokenizer(
+        prompt_texts,
+        add_special_tokens=False,
+        truncation=True,
+        max_length=max_length,
+        padding=False,
+    )
+    full_enc = tokenizer(
+        full_texts,
+        add_special_tokens=False,
+        truncation=True,
+        max_length=max_length,
+        padding=False,
+    )
+
+    input_ids_list = full_enc["input_ids"]
+    attention_mask_list = full_enc["attention_mask"]
+
+    labels_list: list[list[int]] = []
+    for prompt_ids, full_ids in zip(prompt_enc["input_ids"], input_ids_list):
+        prompt_len = len(prompt_ids)
+        labels = ([-100] * prompt_len) + full_ids[prompt_len:]
+        labels = labels[: len(full_ids)]
+        labels_list.append(labels)
+
+    return {
+        "input_ids": input_ids_list,
+        "attention_mask": attention_mask_list,
+        "labels": labels_list,
+    }
+
+
 def run_finetune_job(
         *,
         base_model_or_path: str,
@@ -226,6 +301,9 @@ def run_finetune_job(
         hf_private: bool,
         qlora_enabled: bool = False,
         qlora_config: Optional[Dict[str, Any]] = None,
+        preprocessing: Optional[Dict[str, Any]] = None,
+        max_train_samples: Optional[int] = None,
+        max_eval_samples: Optional[int] = None,
 ) -> Dict[str, str]:
     """
     Fine-tunes one (model, dataset, shot) configuration using instruction tuning.
@@ -248,6 +326,10 @@ def run_finetune_job(
     TensorBoard:
       - We log to {run_dir}/tb
       - We copy tb logs into the pushed folder under `runs/` so HF can show the TensorBoard tab.
+
+    Preprocessing:
+      - HF Datasets `.map()` can be parallelized via `num_proc` and larger `batch_size`.
+        This can significantly speed up tokenization for large splits.
     """
 
     if not hf_private:
@@ -343,18 +425,46 @@ def run_finetune_job(
     # -------------------------
     # Dataset loading and tokenization
     # -------------------------
+    pre = preprocessing or {}
+    num_proc = int(pre.get("num_proc", 1))
+    map_bs = int(pre.get("map_batch_size", 512))
+
     train_split = f"train_{shot}"
     eval_split = f"eval_{shot}"
 
     # load only 100 random samples from the dataset for training
-    train_ds = load_dataset(dataset_repo, split=train_split).select(range(1000))
-    eval_ds = load_dataset(dataset_repo, split=eval_split).select(range(100))
+    train_ds = load_dataset(dataset_repo, split=train_split)
+    eval_ds = load_dataset(dataset_repo, split=eval_split)
 
-    def map_fn(row):
-        return _tokenize_sft_row(row, tokenizer=tokenizer, system_prompt=system_prompt, max_length=max_seq_length)
+    if max_train_samples is not None:
+        train_ds = train_ds.select(range(min(int(max_train_samples), len(train_ds))))
+    if max_eval_samples is not None:
+        eval_ds = eval_ds.select(range(min(int(max_eval_samples), len(eval_ds))))
 
-    train_tok = train_ds.map(map_fn, remove_columns=train_ds.column_names)
-    eval_tok = eval_ds.map(map_fn, remove_columns=eval_ds.column_names)
+    def map_fn(b):
+        return _tokenize_sft_batch(
+            b,
+            tokenizer=tokenizer,
+            system_prompt=system_prompt,
+            max_length=max_seq_length,
+        )
+
+    train_tok = train_ds.map(
+        map_fn,
+        remove_columns=train_ds.column_names,
+        batched=True,
+        batch_size=map_bs,
+        num_proc=num_proc if num_proc > 1 else None,
+        desc=f"[SFT:{model_id}] tokenizing train ({dataset_name}, {shot}-shot)",
+    )
+    eval_tok = eval_ds.map(
+        map_fn,
+        remove_columns=eval_ds.column_names,
+        batched=True,
+        batch_size=map_bs,
+        num_proc=num_proc if num_proc > 1 else None,
+        desc=f"[SFT:{model_id}] tokenizing eval ({dataset_name}, {shot}-shot)",
+    )
 
     # -------------------------
     # Trainer configuration

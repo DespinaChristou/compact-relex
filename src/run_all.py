@@ -158,6 +158,9 @@ def main():
                 hf_private=bool(hf["private"]),
                 qlora_enabled=bool(ft_cfg.get("qlora", {}).get("enabled", False)),
                 qlora_config=dict(ft_cfg.get("qlora", {})),
+                preprocessing=dict(ft_cfg.get("preprocessing", {})),
+                max_train_samples=ft_cfg.get("max_train_samples", None),
+                max_eval_samples=ft_cfg.get("max_eval_samples", None),
             )
 
 

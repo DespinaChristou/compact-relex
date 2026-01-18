@@ -108,6 +108,9 @@ def run_dapt_job(
         eval_strategy: str = "no",
         eval_steps: Optional[int] = None,
         max_steps: Optional[int] = None,
+        preprocessing: Optional[Dict[str, Any]] = None,
+        max_train_samples: Optional[int] = None,
+        max_eval_samples: Optional[int] = None,
 ) -> Dict[str, str]:
     """
     DAPT (Domain-Adaptive Pretraining):
@@ -144,21 +147,57 @@ def run_dapt_job(
     model.gradient_checkpointing_enable()
     model.config.use_cache = False
 
+    pre = preprocessing or {}
+    num_proc = int(pre.get("num_proc", 1))
+    tok_bs = int(pre.get("tokenize_batch_size", 1000))
+    grp_bs = int(pre.get("group_batch_size", 1000))
+
     train_raw = _load_and_stack_corpora(corpora, which_split="train")
+    if max_train_samples is not None:
+        train_raw = train_raw.select(range(min(int(max_train_samples), len(train_raw))))
 
     def tokenize_fn(batch):
         return tokenizer(batch["text"], return_special_tokens_mask=False, truncation=False)
 
-    train_tok = train_raw.map(tokenize_fn, batched=True, remove_columns=["text"])
-    train_lm = train_tok.map(lambda b: _group_texts(b, max_seq_length), batched=True)
+    train_tok = train_raw.map(
+        tokenize_fn,
+        batched=True,
+        batch_size=tok_bs,
+        num_proc=num_proc if num_proc > 1 else None,
+        remove_columns=["text"],
+        desc=f"[DAPT:{model_id}] tokenizing train",
+    )
+    train_lm = train_tok.map(
+        lambda b: _group_texts(b, max_seq_length),
+        batched=True,
+        batch_size=grp_bs,
+        num_proc=num_proc if num_proc > 1 else None,
+        desc=f"[DAPT:{model_id}] grouping train",
+    )
 
     eval_lm = None
     if str(eval_strategy).lower() != "no":
         if any(c.eval_split is None for c in corpora):
             raise ValueError("dapt.eval_strategy != 'no' but at least one corpus is missing eval_split.")
         eval_raw = _load_and_stack_corpora(corpora, which_split="eval")
-        eval_tok = eval_raw.map(tokenize_fn, batched=True, remove_columns=["text"])
-        eval_lm = eval_tok.map(lambda b: _group_texts(b, max_seq_length), batched=True)
+        if max_eval_samples is not None:
+            eval_raw = eval_raw.select(range(min(int(max_eval_samples), len(eval_raw))))
+
+        eval_tok = eval_raw.map(
+            tokenize_fn,
+            batched=True,
+            batch_size=tok_bs,
+            num_proc=num_proc if num_proc > 1 else None,
+            remove_columns=["text"],
+            desc=f"[DAPT:{model_id}] tokenizing eval",
+        )
+        eval_lm = eval_tok.map(
+            lambda b: _group_texts(b, max_seq_length),
+            batched=True,
+            batch_size=grp_bs,
+            num_proc=num_proc if num_proc > 1 else None,
+            desc=f"[DAPT:{model_id}] grouping eval",
+        )
 
     collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
@@ -257,6 +296,9 @@ def main():
             hf_private=bool(cfg["hf"]["private"]),
             eval_strategy=str(cfg["dapt"].get("eval_strategy", "no")),
             eval_steps=cfg["dapt"].get("eval_steps", None),
+            preprocessing=dict(cfg["dapt"].get("preprocessing", {})),
+            max_train_samples=cfg["dapt"].get("max_train_samples", None),
+            max_eval_samples=cfg["dapt"].get("max_eval_samples", None),
         )
 
 

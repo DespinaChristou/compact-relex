@@ -26,10 +26,21 @@ dapt:
   gradient_accumulation_steps: 16
   warmup_ratio: 0.03
   weight_decay: 0.1
-  save_steps: 1000
+  save_steps: 2500
   eval_strategy: steps
-  eval_steps: 1000
-  logging_steps: 50
+  eval_steps: 2500
+  logging_steps: 100
+
+  preprocessing:
+    num_proc: 8
+    tokenize_batch_size: 1000
+    group_batch_size: 1000
+
+  # Optional: cap the number of raw rows processed to avoid heavy preprocessing
+  # when using max_steps. Set to null to process all.
+  max_train_samples: null
+  max_eval_samples: null
+
 
 finetune:
   enabled: true
@@ -59,6 +70,15 @@ finetune:
   save_steps: 500
   eval_steps: 500
   logging_steps: 50
+
+  # Speed knobs for HF Datasets preprocessing (tokenization/map)
+  preprocessing:
+    num_proc: 8
+    map_batch_size: 256
+
+  # Optional caps for faster iteration/debugging (null = use full splits)
+  max_train_samples: null
+  max_eval_samples: null
 
   qlora:
     enabled: true
