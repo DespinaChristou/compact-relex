@@ -1,0 +1,133 @@
+hf:
+  token_env: HF_TOKEN
+  org_or_user: Despina
+  private: true
+
+paths:
+  runs_dir: runs
+
+shots: [ 0, 2, 5 ]
+
+dapt:
+  enabled: true
+  output_subdir: dapt
+  corpora:
+    - repo: Despina/litBank
+      split: train
+      eval_split: validation
+      text_column: original_text
+    - repo: Despina/bookcorpus-deduplicated
+      split: train
+      eval_split: validation
+      text_column: text
+
+  max_seq_length: 2048
+  learning_rate: 2.0e-5
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  warmup_ratio: 0.03
+  weight_decay: 0.1
+  save_steps: 1000
+  logging_steps: 50
+
+finetune:
+  enabled: false
+  output_subdir: finetune
+
+  # Optional filters (all are optional; omit for "run everything")
+  # - only_models: if set, ONLY these model_ids will be finetuned
+  # - skip_models: if set, these model_ids will be skipped
+  # Model ids refer to the `models[].id` values (e.g., "Qwen2.5-3B-Instruct")
+  only_models: null
+  skip_models: null
+
+  # Whether to also finetune the DAPT variants (model_id + "-lit-dapt")
+  include_dapt_models: true
+
+  datasets:
+    re_gentune: Despina/re_gentune
+    re_littune: Despina/re_littune
+    re_mixtune: Despina/re_mixtune
+  max_seq_length: 2048
+  learning_rate: 2.0e-5
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  warmup_ratio: 0.03
+  weight_decay: 0.1
+  save_steps: 500
+  eval_steps: 500
+  logging_steps: 50
+
+  qlora:
+    enabled: true
+    load_in_4bit: true
+    bnb_4bit_quant_type: nf4
+    bnb_4bit_compute_dtype: bfloat16
+    bnb_4bit_use_double_quant: true
+
+    # Default LoRA (used unless overridden per-model below)
+    lora_r: 64
+    lora_alpha: 128
+    lora_dropout: 0.05
+    target_modules: [ q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj ]
+    bias: none
+    task_type: CAUSAL_LM
+    optim: paged_adamw_8bit
+
+    # Save + push merged full weights (in addition to adapter)
+    merge_full_weights: true
+    merged_torch_dtype: bfloat16
+
+    # Optional per-model overrides (recommended for your size range)
+    per_model:
+      SmolLM2-135M-Instruct: { lora_r: 16, lora_alpha: 32 }
+      SmolLM2-360M-Instruct: { lora_r: 16, lora_alpha: 32 }
+      Qwen2.5-0.5B-Instruct: { lora_r: 32, lora_alpha: 64 }
+      gemma-2-2b-it: { lora_r: 64, lora_alpha: 128 }
+      SmolLM3-3B: { lora_r: 64, lora_alpha: 128 }
+      Qwen2.5-3B-Instruct: { lora_r: 64, lora_alpha: 128 }
+      Llama-3.2-3B-Instruct: { lora_r: 64, lora_alpha: 128 }
+
+
+
+# IMPORTANT:
+# - `id` is the human-readable model_id used in naming outputs and HF repos.
+# - `base_model` is the HF model identifier to load from.
+models:
+  - id: SmolLM2-135M-Instruct
+    base_model: HuggingFaceTB/SmolLM2-135M-Instruct
+    family: smollm
+  - id: SmolLM2-360M-Instruct
+    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
+    family: smollm
+  - id: Qwen2.5-0.5B-Instruct
+    base_model: Qwen/Qwen2.5-0.5B-Instruct
+    family: qwen
+  - id: gemma-2-2b-it
+    base_model: google/gemma-2-2b-it
+    family: gemma
+  - id: SmolLM3-3B
+    base_model: HuggingFaceTB/SmolLM3-3B
+    family: smollm
+  - id: Qwen2.5-3B-Instruct
+    base_model: Qwen/Qwen2.5-3B-Instruct
+    family: qwen
+  - id: Llama-3.2-3B-Instruct
+    base_model: meta-llama/Llama-3.2-3B-Instruct
+    family: llama
+
+prompting:
+  # We will use the dataset’s `prompt` as the user content,
+  # and train to generate ONLY the relation string (from column `relation`).
+  templates:
+    qwen:
+      kind: chat_template
+    gemma:
+      kind: chat_template
+    smollm:
+      kind: chat_template
+    llama:
+      kind: chat_template
+  system_prompt: "You are an expert relation extraction system. Answer with only the relation label."

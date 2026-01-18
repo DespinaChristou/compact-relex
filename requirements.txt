@@ -1,0 +1,17 @@
+click
+numpy
+pandas
+pip
+pytz
+pyyaml
+requests
+six
+
+datasets
+huggingface_hub
+transformers
+torch
+accelerate
+bitsandbytes
+peft
+tensorboard
