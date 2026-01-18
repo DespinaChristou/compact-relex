@@ -53,7 +53,7 @@ def main():
     ft_cfg = cfg["finetune"]
 
     # -------------------------
-    # 1) DAPT: once per base model
+    # 1) DAPT: once per base model (parallel)
     # -------------------------
     if args.stage in ("all", "dapt") and bool(dapt_cfg.get("enabled", False)):
         if args.job_count == 1 or args.job_index == 0:
