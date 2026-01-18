@@ -65,26 +65,25 @@ def main():
                 if args.job_count > 1 and not _is_assigned(mi, args.job_index, args.job_count):
                     continue
 
-                for m in cfg["models"]:
-                    run_dapt_job(
-                        base_model=m["base_model"],
-                        model_id=m["id"],
-                        output_dir=str(dapt_out_dir),
-                        corpora=corpora,
-                        max_seq_length=int(dapt_cfg["max_seq_length"]),
-                        learning_rate=float(dapt_cfg["learning_rate"]),
-                        num_train_epochs=int(dapt_cfg["num_train_epochs"]),
-                        per_device_train_batch_size=int(dapt_cfg["per_device_train_batch_size"]),
-                        gradient_accumulation_steps=int(dapt_cfg["gradient_accumulation_steps"]),
-                        warmup_ratio=float(dapt_cfg["warmup_ratio"]),
-                        weight_decay=float(dapt_cfg["weight_decay"]),
-                        save_steps=int(dapt_cfg["save_steps"]),
-                        logging_steps=int(dapt_cfg["logging_steps"]),
-                        hf_token=hf.get("token", None),
-                        hf_token_env=hf.get("token_env", None),
-                        hf_org_or_user=hf["org_or_user"],
-                        hf_private=bool(hf["private"]),
-                    )
+                run_dapt_job(
+                    base_model=m["base_model"],
+                    model_id=m["id"],
+                    output_dir=str(dapt_out_dir),
+                    corpora=corpora,
+                    max_seq_length=int(dapt_cfg["max_seq_length"]),
+                    learning_rate=float(dapt_cfg["learning_rate"]),
+                    num_train_epochs=int(dapt_cfg["num_train_epochs"]),
+                    per_device_train_batch_size=int(dapt_cfg["per_device_train_batch_size"]),
+                    gradient_accumulation_steps=int(dapt_cfg["gradient_accumulation_steps"]),
+                    warmup_ratio=float(dapt_cfg["warmup_ratio"]),
+                    weight_decay=float(dapt_cfg["weight_decay"]),
+                    save_steps=int(dapt_cfg["save_steps"]),
+                    logging_steps=int(dapt_cfg["logging_steps"]),
+                    hf_token=hf.get("token", None),
+                    hf_token_env=hf.get("token_env", None),
+                    hf_org_or_user=hf["org_or_user"],
+                    hf_private=bool(hf["private"]),
+                )
 
     # -------------------------
     # 2) Finetuning: for base + (optionally) dapt models, all datasets, all shots
