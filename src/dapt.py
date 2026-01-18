@@ -107,6 +107,7 @@ def run_dapt_job(
         hf_private: bool,
         eval_strategy: str = "no",
         eval_steps: Optional[int] = None,
+        max_steps: Optional[int] = None,
 ) -> Dict[str, str]:
     """
     DAPT (Domain-Adaptive Pretraining):
@@ -118,6 +119,9 @@ def run_dapt_job(
     TensorBoard:
       - logs are written to {run_dir}/tb
       - we copy them into the pushed artifact under `runs/` so HF can render a TB tab.
+
+    If `max_steps` is provided (>0), it overrides `num_train_epochs` so the run has a
+    predictable compute budget (useful for cloud cost control).
     """
     if not hf_private:
         raise ValueError("This project requires pushing to private repos; set hf.private=true in config.")
@@ -163,6 +167,7 @@ def run_dapt_job(
         overwrite_output_dir=False,
         learning_rate=learning_rate,
         num_train_epochs=num_train_epochs,
+        max_steps=int(max_steps) if (max_steps is not None and int(max_steps) > 0) else -1,
         per_device_train_batch_size=per_device_train_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
         warmup_ratio=warmup_ratio,
