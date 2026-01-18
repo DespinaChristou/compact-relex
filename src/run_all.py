@@ -54,7 +54,8 @@ def main():
                 weight_decay=float(dapt_cfg["weight_decay"]),
                 save_steps=int(dapt_cfg["save_steps"]),
                 logging_steps=int(dapt_cfg["logging_steps"]),
-                hf_token_env=hf["token_env"],
+                hf_token=hf.get("token", None),
+                hf_token_env=hf.get("token_env", None),
                 hf_org_or_user=hf["org_or_user"],
                 hf_private=bool(hf["private"]),
             )
@@ -93,7 +94,7 @@ def main():
 
         starting_points.append((m["base_model"], base_id))
 
-        if bool(dapt_cfg.get("enabled", False)) and include_dapt_models:
+        if include_dapt_models:
             starting_points.append((_dapt_output_model_ref(hf["org_or_user"], base_id), f"{base_id}-lit-dapt"))
 
     for model_ref, model_id in starting_points:
@@ -117,7 +118,8 @@ def main():
                     eval_steps=int(ft_cfg["eval_steps"]),
                     logging_steps=int(ft_cfg["logging_steps"]),
                     system_prompt=str(cfg["prompting"]["system_prompt"]),
-                    hf_token_env=hf["token_env"],
+                    hf_token=hf.get("token", None),
+                    hf_token_env=hf.get("token_env", None),
                     hf_org_or_user=hf["org_or_user"],
                     hf_private=bool(hf["private"]),
                     qlora_enabled=bool(ft_cfg.get("qlora", {}).get("enabled", False)),
@@ -126,4 +128,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # import sys
+    # sys.argv = ["run_all", "--config", "../configs/experiments.yaml"]
     main()

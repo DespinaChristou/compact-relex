@@ -1,4 +1,5 @@
 hf:
+  token:
   token_env: HF_TOKEN
   org_or_user: Despina
   private: true
@@ -9,7 +10,7 @@ paths:
 shots: [ 0, 2, 5 ]
 
 dapt:
-  enabled: true
+  enabled: false
   output_subdir: dapt
   corpora:
     - repo: Despina/litBank
@@ -32,7 +33,7 @@ dapt:
   logging_steps: 50
 
 finetune:
-  enabled: false
+  enabled: true
   output_subdir: finetune
 
   # Optional filters (all are optional; omit for "run everything")

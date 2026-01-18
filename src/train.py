@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 import shutil
+import re
 
 import yaml
 from datasets import load_dataset
@@ -29,6 +30,76 @@ class SFTExample:
     relation: str
 
 
+def _unravel_fewshot_prompt_to_messages(user_prompt: str) -> list[dict]:
+    """
+    Convert the dataset `prompt` (which may contain few-shot demonstrations) into a list
+    of chat messages suitable for tokenizer.apply_chat_template.
+
+    Dataset prompt format assumptions (based on your examples):
+      - 0-shot: single user prompt ending with "Answer:" (empty)
+      - 2/5-shot: repeated blocks:
+          <example text>
+          Answer: <label>
+
+          <example text>
+          Answer: <label>
+
+          Now you try:
+          <final example text>
+          Answer:
+    We must turn the demonstration blocks into alternating user/assistant messages.
+
+    Output:
+      messages = [
+        {"role": "user", "content": "<demo1...>\\nAnswer:"},
+        {"role": "assistant", "content": "<label1>"},
+        ...
+        {"role": "user", "content": "<final...>\\nAnswer:"},
+      ]
+    """
+    text = (user_prompt or "").strip()
+
+    # Fast path: if there is no "Now you try:", treat as a single user turn (0-shot).
+    # (Even if there are no demos, this still works.)
+    if "Now you try:" not in text:
+        return [{"role": "user", "content": text}]
+
+    demo_part, final_part = text.split("Now you try:", 1)
+    demo_part = demo_part.strip()
+    final_part = final_part.strip()
+
+    messages: list[dict] = []
+
+    # Parse demonstrations: repeated "... Answer: <label>" blocks
+    # We capture anything up to "Answer:" as the user content, and the remainder of the line
+    # as the assistant label. Blocks are separated by blank lines.
+    demo_pattern = re.compile(r"(.*?)(?:\r?\n)Answer:\s*(.*?)(?:\r?\n\r?\n|$)", re.DOTALL)
+    for m in demo_pattern.finditer(demo_part):
+        user_block = (m.group(1) or "").strip()
+        label = (m.group(2) or "").strip()
+
+        # Skip malformed demo blocks (should not happen with your data)
+        if not user_block or not label:
+            continue
+
+        # Ensure the user message ends with "Answer:" to match the prompting style.
+        user_content = user_block
+        if not user_content.rstrip().endswith("Answer:"):
+            user_content = f"{user_content}\nAnswer:"
+
+        messages.append({"role": "user", "content": user_content})
+        messages.append({"role": "assistant", "content": label})
+
+    # Final user query (no label provided in prompt)
+    if final_part:
+        messages.append({"role": "user", "content": final_part})
+    else:
+        # If "Now you try:" is present but nothing after it, fall back to the original prompt.
+        messages.append({"role": "user", "content": text})
+
+    return messages
+
+
 def _build_chat_texts(
         *,
         tokenizer,
@@ -38,26 +109,35 @@ def _build_chat_texts(
 ) -> Tuple[str, str]:
     """
     Returns (prompt_text, full_text).
-    prompt_text: chat formatted text that ends right before assistant content generation.
-    full_text: prompt_text + assistant_answer (+ eos, via tokenizer)
+
+    prompt_text:
+      - chat formatted text that ends right before assistant content generation
+      - for few-shot prompts, includes N (user, assistant) demonstration turns, then the final user turn
+
+    full_text:
+      - prompt_text + assistant_answer (as the final assistant message)
     """
     # Use the model's official chat template when available.
     if hasattr(tokenizer, "apply_chat_template") and tokenizer.chat_template:
+        # Build messages for the prompt (system + unraveled few-shot user/assistant turns)
         messages_prompt = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            *(_unravel_fewshot_prompt_to_messages(user_prompt)),
         ]
+
         prompt_text = tokenizer.apply_chat_template(
             messages_prompt,
             tokenize=False,
             add_generation_prompt=True,
         )
 
+        # Build messages for supervised training target (same, plus final assistant answer)
         messages_full = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            *(_unravel_fewshot_prompt_to_messages(user_prompt)),
             {"role": "assistant", "content": assistant_answer},
         ]
+
         full_text = tokenizer.apply_chat_template(
             messages_full,
             tokenize=False,
@@ -140,7 +220,8 @@ def run_finetune_job(
         eval_steps: int,
         logging_steps: int,
         system_prompt: str,
-        hf_token_env: str,
+        hf_token: Optional[str] = None,
+        hf_token_env: Optional[str] = None,
         hf_org_or_user: str,
         hf_private: bool,
         qlora_enabled: bool = False,
@@ -179,7 +260,7 @@ def run_finetune_job(
     if _is_done(run_dir):
         return {"local_dir": str(run_dir), "hf_repo": f"{hf_org_or_user}/{run_name}"}
 
-    token = get_hf_token(hf_token_env)
+    token = get_hf_token(token=hf_token, token_env=hf_token_env)
 
     # Tokenizer is shared for both adapter-training and merged saving.
     tokenizer = AutoTokenizer.from_pretrained(base_model_or_path, use_fast=True, token=token)
@@ -224,20 +305,32 @@ def run_finetune_job(
             token=token,
             quantization_config=bnb_cfg,
             device_map="auto",
-            torch_dtype=compute_dtype,
+            dtype=compute_dtype,
         )
 
         # Important for QLoRA stability + memory (activations):
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
+        # Resolve lora_r / lora_alpha:
+        # - if per_model[model_id] exists and has the key, use it
+        # - else fall back to default qlora_config values
+        per_model = qlora_config.get("per_model", {}) if isinstance(qlora_config, dict) else {}
+        overrides = per_model.get(model_id, {}) if isinstance(per_model, dict) else {}
+        if not isinstance(overrides, dict):
+            overrides = {}
+
+        lora_r = int(overrides.get("lora_r", qlora_config.get("lora_r", 64)))
+        lora_alpha = int(overrides.get("lora_alpha", qlora_config.get("lora_alpha", 128)))
+
         lora_cfg = LoraConfig(
-            r=int(qlora_config.get("lora_r", 64)),
-            lora_alpha=int(qlora_config.get("lora_alpha", 128)),
+            r=lora_r,
+            lora_alpha=lora_alpha,
             lora_dropout=float(qlora_config.get("lora_dropout", 0.05)),
             target_modules=list(qlora_config.get("target_modules", [])),
             bias=str(qlora_config.get("bias", "none")),
             task_type=str(qlora_config.get("task_type", "CAUSAL_LM")),
         )
+
         model = get_peft_model(model, lora_cfg)
         model.print_trainable_parameters()
     else:
@@ -253,8 +346,9 @@ def run_finetune_job(
     train_split = f"train_{shot}"
     eval_split = f"eval_{shot}"
 
-    train_ds = load_dataset(dataset_repo, split=train_split)
-    eval_ds = load_dataset(dataset_repo, split=eval_split)
+    # load only 100 random samples from the dataset for training
+    train_ds = load_dataset(dataset_repo, split=train_split).select(range(1000))
+    eval_ds = load_dataset(dataset_repo, split=eval_split).select(range(100))
 
     def map_fn(row):
         return _tokenize_sft_row(row, tokenizer=tokenizer, system_prompt=system_prompt, max_length=max_seq_length)
@@ -377,6 +471,7 @@ def main():
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    hf = cfg["hf"]
 
     out_dir = Path(cfg["paths"]["runs_dir"]) / cfg["finetune"]["output_subdir"]
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -387,10 +482,11 @@ def main():
     # Allow per-model QLoRA overrides (e.g., smaller r/alpha for micro models).
     if qlora_enabled:
         per_model = dict(qlora_cfg.get("per_model", {}))
-        if args.model_id in per_model:
-            merged = dict(qlora_cfg)
-            merged.update(dict(per_model[args.model_id]))
-            qlora_cfg = merged
+        overrides = per_model.get(args.model_id, None)
+        if isinstance(overrides, dict):
+            for k in ("lora_r", "lora_alpha"):
+                if k in overrides and overrides[k] is not None:
+                    qlora_cfg[k] = overrides[k]
 
     run_finetune_job(
         base_model_or_path=args.base_model_or_path,
@@ -410,7 +506,8 @@ def main():
         eval_steps=int(cfg["finetune"]["eval_steps"]),
         logging_steps=int(cfg["finetune"]["logging_steps"]),
         system_prompt=str(cfg["prompting"]["system_prompt"]),
-        hf_token_env=cfg["hf"]["token_env"],
+        hf_token=hf.get("token", None),
+        hf_token_env=hf.get("token_env", None),
         hf_org_or_user=cfg["hf"]["org_or_user"],
         hf_private=bool(cfg["hf"]["private"]),
         qlora_enabled=qlora_enabled,

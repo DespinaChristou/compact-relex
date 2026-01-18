@@ -12,13 +12,26 @@ class HFConfig:
     private: bool
 
 
-def get_hf_token(token_env: str) -> str:
-    token = os.environ.get(token_env)
-    if not token:
+def get_hf_token(*, token: Optional[str] = None, token_env: Optional[str] = None) -> str:
+    """
+    Resolve the Hugging Face token.
+
+    Precedence:
+      1) explicit `token` (e.g., from experiments.yaml)   [NOT recommended to commit]
+      2) environment variable named by `token_env`        [recommended]
+    """
+    if token:
+        return token
+
+    if not token_env:
+        raise RuntimeError("No token provided and token_env is missing.")
+
+    env_token = os.environ.get(token_env)
+    if not env_token:
         raise RuntimeError(
-            f"Missing Hugging Face token. Please set env var {token_env} (e.g., export {token_env}=...)."
+            f"Missing Hugging Face token. Set env var {token_env} (e.g., export {token_env}=...)."
         )
-    return token
+    return env_token
 
 
 def ensure_private_model_repo(repo_id: str, token: str) -> None:

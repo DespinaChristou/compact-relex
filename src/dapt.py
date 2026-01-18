@@ -101,7 +101,8 @@ def run_dapt_job(
         weight_decay: float,
         save_steps: int,
         logging_steps: int,
-        hf_token_env: str,
+        hf_token: Optional[str] = None,
+        hf_token_env: Optional[str] = None,
         hf_org_or_user: str,
         hf_private: bool,
         eval_strategy: str = "no",
@@ -128,7 +129,7 @@ def run_dapt_job(
     if _is_done(run_dir):
         return {"local_dir": str(run_dir), "hf_repo": f"{hf_org_or_user}/{run_name}"}
 
-    token = get_hf_token(hf_token_env)
+    token = get_hf_token(token=hf_token, token_env=hf_token_env)
 
     tb_dir = run_dir / "tb"
     tb_dir.mkdir(parents=True, exist_ok=True)
@@ -228,6 +229,8 @@ def main():
     runs_dir = Path(cfg["paths"]["runs_dir"]) / cfg["dapt"]["output_subdir"]
     runs_dir.mkdir(parents=True, exist_ok=True)
 
+    hf = cfg["hf"]
+
     for m in cfg["models"]:
         run_dapt_job(
             base_model=m["base_model"],
@@ -243,7 +246,8 @@ def main():
             weight_decay=float(cfg["dapt"]["weight_decay"]),
             save_steps=int(cfg["dapt"]["save_steps"]),
             logging_steps=int(cfg["dapt"]["logging_steps"]),
-            hf_token_env=cfg["hf"]["token_env"],
+            hf_token=hf.get("token", None),
+            hf_token_env=hf.get("token_env", None),
             hf_org_or_user=cfg["hf"]["org_or_user"],
             hf_private=bool(cfg["hf"]["private"]),
             eval_strategy=str(cfg["dapt"].get("eval_strategy", "no")),
