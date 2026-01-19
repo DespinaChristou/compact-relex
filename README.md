@@ -212,6 +212,22 @@ Run on a 4-GPU node:
 #### 2) Finetuning in parallel (sharded by expanded job index)
 
 ```bash
+mkdir -p /workspace/.cache/huggingface /workspace/.cache/transformers /workspace/.tmp
+
+COMMON_ENV="HF_HOME=/workspace/.cache/huggingface \
+HF_DATASETS_CACHE=/workspace/.cache/huggingface/datasets \
+TRANSFORMERS_CACHE=/workspace/.cache/transformers \
+TMPDIR=/workspace/.tmp \
+PYTHONUNBUFFERED=1"
+
+eval $COMMON_ENV CUDA_VISIBLE_DEVICES=0 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 0 > logs/dapt_0.log 2>&1 &
+eval $COMMON_ENV CUDA_VISIBLE_DEVICES=1 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 1 > logs/dapt_1.log 2>&1 &
+eval $COMMON_ENV CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 2 > logs/dapt_2.log 2>&1 &
+eval $COMMON_ENV CUDA_VISIBLE_DEVICES=3 python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 4 --job_index 3 > logs/dapt_3.log 2>&1 &
+wait
+
+
+
  CUDA_VISIBLE_DEVICES=0 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 0 & 
  CUDA_VISIBLE_DEVICES=1 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 1 & 
  CUDA_VISIBLE_DEVICES=2 python -m src.run_all --config configs/experiments.yaml --stage finetune --job_count 4 --job_index 2 & 
