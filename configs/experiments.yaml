@@ -26,13 +26,13 @@ dapt:
   gradient_accumulation_steps: 16
   warmup_ratio: 0.03
   weight_decay: 0.1
-  save_steps: 2500
+  save_steps: 999000
   eval_strategy: steps
   eval_steps: 2500
   logging_steps: 100
 
   preprocessing:
-    num_proc: 2
+    num_proc: 1
     tokenize_batch_size: 64
     group_batch_size: 128
     tokenizer_max_length: 2048
