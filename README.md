@@ -223,7 +223,7 @@ CUDA_VISIBLE_DEVICES=0 $COMMON_ENV python -m src.run_all --config configs/experi
 CUDA_VISIBLE_DEVICES=1 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 1 > logs/dapt_1.log 2>&1 &
 CUDA_VISIBLE_DEVICES=2 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 2 > logs/dapt_2.log 2>&1 &
 CUDA_VISIBLE_DEVICES=3 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 3 > logs/dapt_3.log 2>&1 &
-CUDA_VISIBLE_DEV_DEVICES=4 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 4 > logs/dapt_4.log 2>&1 &
+CUDA_VISIBLE_DEVICES=4 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 4 > logs/dapt_4.log 2>&1 &
 CUDA_VISIBLE_DEVICES=5 $COMMON_ENV python -m src.run_all --config configs/experiments.yaml --stage dapt --job_count 6 --job_index 5 > logs/dapt_5.log 2>&1 &
 
 wait

@@ -82,6 +82,8 @@ def main():
                 hf_token_env=hf.get("token_env", None),
                 hf_org_or_user=hf["org_or_user"],
                 hf_private=bool(hf["private"]),
+                max_train_samples=dapt_cfg.get("max_train_samples", None),
+                max_eval_samples=dapt_cfg.get("max_eval_samples", None),
             )
 
     # -------------------------

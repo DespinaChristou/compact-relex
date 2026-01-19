@@ -142,6 +142,15 @@ def run_dapt_job(
     tb_dir.mkdir(parents=True, exist_ok=True)
 
     tokenizer = AutoTokenizer.from_pretrained(base_model, use_fast=True, token=token)
+    # Some causal-LM tokenizers (notably Llama) ship without a pad_token.
+    # The LM collator pads batches, so we must define one.
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is None:
+            raise ValueError(
+                f"[DAPT:{model_id}] Tokenizer has no pad_token and no eos_token; cannot set padding token safely."
+            )
+        tokenizer.pad_token = tokenizer.eos_token
+
     model = AutoModelForCausalLM.from_pretrained(base_model, token=token)
 
     model.gradient_checkpointing_enable()
