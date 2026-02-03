@@ -98,7 +98,6 @@ The experiments use **instruction-tuned checkpoints only**.
 
 ### Micro models
 
-* SmolLM2-135M-Instruct
 * SmolLM2-360M-Instruct
 * Qwen2.5-0.5B-Instruct
 

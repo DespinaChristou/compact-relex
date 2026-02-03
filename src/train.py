@@ -30,6 +30,40 @@ class SFTExample:
     relation: str
 
 
+# -------------------------
+# Collator: pads inputs AND labels (labels padded with -100)
+# -------------------------
+@dataclass
+class SFTDataCollator:
+    tokenizer: Any
+    label_pad_token_id: int = -100
+
+    def __call__(self, features: list[Dict[str, Any]]) -> Dict[str, Any]:
+        import torch
+
+        labels = [f["labels"] for f in features]
+        inputs = [{k: v for k, v in f.items() if k != "labels"} for f in features]
+
+        batch = self.tokenizer.pad(
+            inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+
+        max_len = int(batch["input_ids"].shape[1])
+        padded_labels = torch.full(
+            (len(labels), max_len),
+            fill_value=self.label_pad_token_id,
+            dtype=torch.long,
+        )
+        for i, lab in enumerate(labels):
+            lab_t = torch.tensor(lab, dtype=torch.long)
+            padded_labels[i, : lab_t.numel()] = lab_t
+
+        batch["labels"] = padded_labels
+        return batch
+
+
 def _unravel_fewshot_prompt_to_messages(user_prompt: str) -> list[dict]:
     """
     Convert the dataset `prompt` (which may contain few-shot demonstrations) into a list
@@ -346,6 +380,13 @@ def run_finetune_job(
 
     # Tokenizer is shared for both adapter-training and merged saving.
     tokenizer = AutoTokenizer.from_pretrained(base_model_or_path, use_fast=True, token=token)
+    # Trainer's default collator pads batches, so we must define one.
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is None:
+            raise ValueError(
+                f"[SFT:{model_id}] Tokenizer has no pad_token and no eos_token; cannot set padding token safely."
+            )
+        tokenizer.pad_token = tokenizer.eos_token
 
     adapter_out_dir = run_dir / "adapter"
     merged_out_dir = run_dir / "merged"
@@ -475,7 +516,6 @@ def run_finetune_job(
 
     args = TrainingArguments(
         output_dir=str(run_dir),
-        overwrite_output_dir=False,
         learning_rate=learning_rate,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -487,7 +527,7 @@ def run_finetune_job(
         eval_strategy="steps",
         eval_steps=eval_steps,
         logging_steps=logging_steps,
-        save_total_limit=2,
+        save_total_limit=1,
         logging_dir=str(tb_dir),
         report_to=["tensorboard"],
         bf16=True,
@@ -500,7 +540,8 @@ def run_finetune_job(
         args=args,
         train_dataset=train_tok,
         eval_dataset=eval_tok,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
+        data_collator=SFTDataCollator(tokenizer=tokenizer),
     )
     trainer.train()
 
