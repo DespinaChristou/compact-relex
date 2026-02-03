@@ -469,6 +469,7 @@ def run_finetune_job(
     pre = preprocessing or {}
     num_proc = int(pre.get("num_proc", 1))
     map_bs = int(pre.get("map_batch_size", 512))
+    sample_seed = int(pre.get("sample_seed", 42))
 
     train_split = f"train_{shot}"
     eval_split = f"eval_{shot}"
@@ -478,9 +479,13 @@ def run_finetune_job(
     eval_ds = load_dataset(dataset_repo, split=eval_split)
 
     if max_train_samples is not None:
-        train_ds = train_ds.select(range(min(int(max_train_samples), len(train_ds))))
+        train_ds = train_ds.shuffle(seed=sample_seed).select(
+            range(min(int(max_train_samples), len(train_ds)))
+        )
     if max_eval_samples is not None:
-        eval_ds = eval_ds.select(range(min(int(max_eval_samples), len(eval_ds))))
+        eval_ds = eval_ds.shuffle(seed=sample_seed + 1).select(
+            range(min(int(max_eval_samples), len(eval_ds)))
+        )
 
     def map_fn(b):
         return _tokenize_sft_batch(
