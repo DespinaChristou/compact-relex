@@ -1,5 +1,4 @@
 hf:
-  token:
   token_env: HF_TOKEN
   org_or_user: Despina
   private: true
@@ -7,10 +6,10 @@ hf:
 paths:
   runs_dir: runs
 
-shots: [ 0, 2, 5 ]
+shots: [ 0, 2 ]
 
 dapt:
-  enabled: true
+  enabled: false
   output_subdir: dapt
   corpora:
     - repo: Despina/litBank
@@ -45,8 +44,13 @@ dapt:
 
 
 finetune:
-  enabled: false
+  enabled: true
   output_subdir: finetune
+
+  datasets:
+    re_mixtune: Despina/re_mixtune
+    re_gentune: Despina/re_gentune
+    re_littune: Despina/re_littune
 
   # Optional filters (all are optional; omit for "run everything")
   # - only_models: if set, ONLY these model_ids will be finetuned
@@ -54,24 +58,18 @@ finetune:
   # Model ids refer to the `models[].id` values (e.g., "Qwen2.5-3B-Instruct")
   only_models: null
   skip_models: null
+  include_dapt_models: false
 
-  # Whether to also finetune the DAPT variants (model_id + "-lit-dapt")
-  include_dapt_models: true
-
-  datasets:
-    re_gentune: Despina/re_gentune
-    re_littune: Despina/re_littune
-    re_mixtune: Despina/re_mixtune
   max_seq_length: 1024
-  learning_rate: 2.0e-5
+  learning_rate: 1.0e-4
   num_train_epochs: 2
-  per_device_train_batch_size: 1
-  gradient_accumulation_steps: 16
+  per_device_train_batch_size: 32
+  gradient_accumulation_steps: 1
   warmup_ratio: 0.03
-  weight_decay: 0.1
-  save_steps: 500
-  eval_steps: 500
-  logging_steps: 50
+  weight_decay: 0.01
+  save_steps: 10000
+  eval_steps: 20000
+  logging_steps: 200
 
   # Speed knobs for HF Datasets preprocessing (tokenization/map)
   preprocessing:
@@ -79,8 +77,8 @@ finetune:
     map_batch_size: 256
 
   # Optional caps for faster iteration/debugging (null = use full splits)
-  max_train_samples: null
-  max_eval_samples: null
+  max_train_samples: 200000
+  max_eval_samples: 20000
 
   qlora:
     enabled: true
@@ -99,12 +97,11 @@ finetune:
     optim: paged_adamw_8bit
 
     # Save + push merged full weights (in addition to adapter)
-    merge_full_weights: true
+    merge_full_weights: false
     merged_torch_dtype: bfloat16
 
-    # Optional per-model overrides (recommended for your size range)
+    # Optional per-model overrides
     per_model:
-      SmolLM2-135M-Instruct: { lora_r: 16, lora_alpha: 32 }
       SmolLM2-360M-Instruct: { lora_r: 16, lora_alpha: 32 }
       Qwen2.5-0.5B-Instruct: { lora_r: 32, lora_alpha: 64 }
       gemma-2-2b-it: { lora_r: 64, lora_alpha: 128 }
@@ -118,15 +115,15 @@ finetune:
 # - `id` is the human-readable model_id used in naming outputs and HF repos.
 # - `base_model` is the HF model identifier to load from.
 models:
-  - id: SmolLM2-360M-Instruct
-    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
-    family: smollm
-  - id: Qwen2.5-0.5B-Instruct
-    base_model: Qwen/Qwen2.5-0.5B-Instruct
-    family: qwen
-  - id: gemma-2-2b-it
-    base_model: google/gemma-2-2b-it
-    family: gemma
+#  - id: SmolLM2-360M-Instruct
+#    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
+#    family: smollm
+#  - id: Qwen2.5-0.5B-Instruct
+#    base_model: Qwen/Qwen2.5-0.5B-Instruct
+#    family: qwen
+#  - id: gemma-2-2b-it
+#    base_model: google/gemma-2-2b-it
+#    family: gemma
   - id: SmolLM3-3B
     base_model: HuggingFaceTB/SmolLM3-3B
     family: smollm

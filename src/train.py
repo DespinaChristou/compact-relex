@@ -535,8 +535,8 @@ def run_finetune_job(
         save_total_limit=1,
         logging_dir=str(tb_dir),
         report_to=["tensorboard"],
-        bf16=False,
-        fp16=True,
+        bf16=True,
+        fp16=False,
         **extra_args,
     )
 
