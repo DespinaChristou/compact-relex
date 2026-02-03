@@ -131,7 +131,15 @@ def main():
                 for shot in shots:
                     all_jobs.append((model_ref, model_id, dataset_name, dataset_repo, int(shot)))
 
+
+        # print all jobs
+        print("All jobs:", all_jobs)
+        print(f"Total jobs: {len(all_jobs)}")
+        print("===================================================")
+
         for i, (model_ref, model_id, dataset_name, dataset_repo, shot) in enumerate(all_jobs):
+            print(f"\nJob {i}: {model_id}--{dataset_name}--{shot}shot")
+
             if args.job_count > 1 and not _is_assigned(i, args.job_index, args.job_count):
                 continue
 

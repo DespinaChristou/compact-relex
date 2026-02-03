@@ -1,3 +1,10 @@
+# Install CUDA 12.4 PyTorch wheels from the official PyTorch index
+--index-url https://download.pytorch.org/whl/cu124
+torch
+
+# Switch back to the default PyPI index for the remaining dependencies
+--index-url https://pypi.org/simple
+
 click
 numpy
 pandas
@@ -10,7 +17,6 @@ six
 datasets
 huggingface_hub
 transformers
-torch
 accelerate
 bitsandbytes
 peft
