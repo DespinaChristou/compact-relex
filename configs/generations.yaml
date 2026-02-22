@@ -1,0 +1,140 @@
+# configs/generations.yaml
+hf:
+  token: null              # optional; if null we use token_env
+  token_env: HF_TOKEN
+  org_or_user: Despina
+  private: true
+
+paths:
+  runs_dir: runs
+  output_subdir: generations
+
+# Evaluate on the ORIGINAL datasets (not the aggregates), always test split.
+# Note: `subset: default` is expressed as null for load_dataset(repo, None, ...).
+eval_datasets:
+  - name: tacred
+    repo: Despina/tacred
+    subset: null
+    split: test
+  - name: semeval2010_task8
+    repo: Despina/semeval2010_task8
+    subset: null
+    split: test
+  - name: conll04
+    repo: Despina/conll04
+    subset: null
+    split: test
+  - name: nyt11
+    repo: Despina/nyt_11
+    subset: null
+    split: test
+  - name: gids
+    repo: Despina/gids
+    subset: null
+    split: test
+  - name: re_docred
+    repo: Despina/re-docred
+    subset: null
+    split: test
+  - name: rebel
+    repo: Despina/rebel-dataset
+    subset: subsampled
+    split: test
+  - name: biographical
+    repo: Despina/biographical
+    subset: subsampled
+    split: test
+  - name: pg_fiction
+    repo: Despina/project-gutenberg-fiction-relations
+    subset: null
+    split: test
+
+# -------------------------------------------------------------------
+# Eval dataset groups (used to restrict which eval datasets each tuned family is run on)
+# IMPORTANT: entries here must match eval_datasets[].name values exactly.
+# -------------------------------------------------------------------
+eval_groups:
+  gentune: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel ]
+  littune: [ biographical, pg_fiction ]
+  mixtune: all   # special value meaning: allow all eval datasets
+
+# Map tuned dataset names -> eval group key above
+tuned_dataset_to_group:
+  re_gentune: gentune
+  re_littune: littune
+  re_mixtune: mixtune
+
+
+# Which fine-tuned checkpoints to run.
+# Only the tuned dataset *names* are needed to construct model repo names:
+#   {org_or_user}/{model_id}-{tuned_dataset_name}-{shot}-shot
+tuned_datasets:
+  - re_gentune
+  - re_littune
+  - re_mixtune
+
+shots: [ 0, 2 ]
+
+models:
+  include_dapt_models: false  # "no-dapt" (logic exists; if true we also try {model_id}-lit-dapt-... runs)
+  ids:
+    - SmolLM2-360M-Instruct
+    - Qwen2.5-0.5B-Instruct
+    - SmolLM3-3B
+    - Qwen2.5-3B-Instruct
+    - Llama-3.2-3B-Instruct
+
+generation:
+  batch_size: 16
+  max_new_tokens: 8
+  do_sample: false
+  temperature: 0.0
+  top_p: 1.0
+  repetition_penalty: 1.0
+
+# Two generation “types”:
+#  1) open: no label-set restriction
+#  2) constrained: restrict to dataset-specific labels (built dynamically from HF relations)
+#
+# Constrained generations: allowed labels come from THIS dataset’s label column
+# on the selected compute_from split (and subset). If relation is null/NaN/empty
+# it is treated as the literal label: "none".
+label_sets:
+  enabled: true
+  compute_from:
+    split: test          # train|validation|test
+    relation_column: relation
+    max_rows: null        # optionally cap for speed
+
+prompts:
+  # Generic system prompt (used for OPEN generations)
+  system_open: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY the relation type that holds between the two mentioned entities.
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+  # Constrained system prompt template (labels are injected per dataset / per example)
+  system_constrained_template: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY ONE relation type that holds between the two mentioned entities.
+    You MUST choose exactly one label from this allowed set:
+    {allowed_labels}
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+# -------------------------------------------------------------------
+# Output storage
+# -------------------------------------------------------------------
+output:
+  # Supported: csv | parquet
+  #
+  # csv:
+  #   - shard files: generations_shard_<job_index>.csv
+  #   - merged file: generations.csv
+  #
+  # parquet:
+  #   - shard files: generations_shard_<job_index>.parquet
+  #   - merged file: generations.parquet
+  format: csv
+
+  # If true, write shard files; merge script produces the final merged file per eval dataset.
+  sharded: true

@@ -1,4 +1,5 @@
 hf:
+  token:
   token_env: HF_TOKEN
   org_or_user: Despina
   private: true
@@ -63,8 +64,8 @@ finetune:
   max_seq_length: 1024
   learning_rate: 1.0e-4
   num_train_epochs: 2
-  per_device_train_batch_size: 32
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 2
   warmup_ratio: 0.03
   weight_decay: 0.01
   save_steps: 10000
@@ -115,15 +116,12 @@ finetune:
 # - `id` is the human-readable model_id used in naming outputs and HF repos.
 # - `base_model` is the HF model identifier to load from.
 models:
-#  - id: SmolLM2-360M-Instruct
-#    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
-#    family: smollm
-#  - id: Qwen2.5-0.5B-Instruct
-#    base_model: Qwen/Qwen2.5-0.5B-Instruct
-#    family: qwen
-#  - id: gemma-2-2b-it
-#    base_model: google/gemma-2-2b-it
-#    family: gemma
+  - id: SmolLM2-360M-Instruct
+    base_model: HuggingFaceTB/SmolLM2-360M-Instruct
+    family: smollm
+  - id: Qwen2.5-0.5B-Instruct
+    base_model: Qwen/Qwen2.5-0.5B-Instruct
+    family: qwen
   - id: SmolLM3-3B
     base_model: HuggingFaceTB/SmolLM3-3B
     family: smollm

@@ -103,7 +103,6 @@ The experiments use **instruction-tuned checkpoints only**.
 
 ### Small models
 
-* gemma-2-2b-it
 * SmolLM3-3B
 * Qwen2.5-3B-Instruct
 * Llama-3.2-3B-Instruct

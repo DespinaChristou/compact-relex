@@ -145,7 +145,7 @@ aggregates:
   gentune:
     output_repo: "Despina/re_gentune"
     private: true
-    includes: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel ]
+    includes: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel-dataset ]
 
   littune:
     output_repo: "Despina/re_littune"
@@ -158,7 +158,7 @@ aggregates:
     mode: "domain_balanced"         # domain_balanced | dataset_balanced
     shuffle_seed: 42
     cap_per_source_dataset: null    # e.g. 200000 if you want to cap large sources
-    includes_general: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel ]
+    includes_general: [ tacred, semeval2010_task8, conll04, nyt11, gids, re_docred, rebel-dataset ]
     includes_literature: [ biographical, pg_fiction ]
 
 # -------------------------------------------------------------------
