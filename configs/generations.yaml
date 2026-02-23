@@ -86,9 +86,9 @@ models:
 
 generation:
   batch_size: 16
-  max_new_tokens: 8
-  do_sample: false
-  temperature: 0.0
+  max_new_tokens: 128
+  do_sample: true
+  temperature: 0.001
   top_p: 1.0
   repetition_penalty: 1.0
 

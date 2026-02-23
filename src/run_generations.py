@@ -242,7 +242,7 @@ def _batched_indices(n: int, batch_size: int) -> Iterable[List[int]]:
 
 def _load_model_and_tokenizer(model_repo: str, token: str):
     """Load model+tokenizer for inference with device_map='auto'."""
-    tokenizer = AutoTokenizer.from_pretrained(model_repo, use_fast=True, token=token)
+    tokenizer = AutoTokenizer.from_pretrained(model_repo, use_fast=True, token=token, padding_side='left')
     if tokenizer.pad_token is None:
         if tokenizer.eos_token is None:
             raise ValueError(f"[{model_repo}] tokenizer has no pad_token and no eos_token.")
@@ -659,7 +659,7 @@ def main() -> None:
                                 "generated_relation": pred,
                             }
                         )
-                    _append_rows(out_path, open_rows, out_format)
+                    _append_rows(Path(out_path), open_rows, out_format)
 
                     # ---- gen_constrained
                     if label_sets_enabled and system_constrained.strip():
@@ -697,7 +697,7 @@ def main() -> None:
                                 "generated_relation": pred,
                             }
                         )
-                    _append_rows(out_path, constrained_rows, out_format)
+                    _append_rows(Path(out_path), constrained_rows, out_format)
 
                 # Free GPU memory between model loads
                 del model
