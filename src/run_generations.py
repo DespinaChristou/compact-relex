@@ -252,7 +252,7 @@ def _load_model_and_tokenizer(model_repo: str, token: str):
         model_repo,
         token=token,
         device_map="auto",
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else None,
+        dtype=torch.bfloat16 if torch.cuda.is_available() else None,
     )
     model.eval()
     return model, tokenizer
@@ -418,17 +418,19 @@ def _append_rows(path: Path, rows: List[Dict[str, Any]], fmt: str) -> None:
 # -------------------------
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", required=True, help="Path to configs/generations.yaml")
+    # ap.add_argument("--config", required=True, help="Path to configs/generations.yaml")
+    ap.add_argument("--config", help="Path to configs/generations.yaml")
     ap.add_argument("--job_index", type=int, default=0, help="Shard index in [0..job_count-1]")
     ap.add_argument("--job_count", type=int, default=1, help="Number of shards / parallel workers")
     args = ap.parse_args()
 
-    if args.job_count < 1:
-        raise ValueError("--job_count must be >= 1")
-    if not (0 <= args.job_index < args.job_count):
-        raise ValueError("--job_index must be in [0..job_count-1]")
+    # if args.job_count < 1:
+    #     raise ValueError("--job_count must be >= 1")
+    # if not (0 <= args.job_index < args.job_count):
+    #     raise ValueError("--job_index must be in [0..job_count-1]")
 
-    cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    cfg = yaml.safe_load(Path("../configs/generations.yaml").read_text(encoding="utf-8"))
+    # cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
 
     # HF auth
     token = get_hf_token(token=cfg["hf"].get("token", None), token_env=cfg["hf"].get("token_env", "HF_TOKEN"))
