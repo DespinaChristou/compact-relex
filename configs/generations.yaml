@@ -1,12 +1,12 @@
 # configs/generations.yaml
 hf:
-  token: null              # optional; if null we use token_env
+  token: "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"              # optional; if null we use token_env
   token_env: HF_TOKEN
   org_or_user: Despina
   private: true
 
 paths:
-  runs_dir: runs
+  runs_dir: ../runs
   output_subdir: generations
 
 # Evaluate on the ORIGINAL datasets (not the aggregates), always test split.
@@ -85,7 +85,7 @@ models:
     - Llama-3.2-3B-Instruct
 
 generation:
-  batch_size: 16
+  batch_size: 64
   max_new_tokens: 128
   do_sample: true
   temperature: 0.001

@@ -1,0 +1,119 @@
+# configs/eval.yaml
+# ──────────────────────────────────────────────────────────────────────
+# Evaluation pipeline configuration
+# ──────────────────────────────────────────────────────────────────────
+
+paths:
+  generations_dir: runs/generations          # relative to repo root
+  output_dir: runs/evaluation                # all eval outputs land here
+  figures_dir: figures                       # PDF figures for the paper
+  per_class_dir: runs/evaluation/per_class   # per-label breakdowns
+
+# ──────────────────────────────────────────────────────────────────────
+# Primary evaluation settings
+# ──────────────────────────────────────────────────────────────────────
+
+# Which generation type to use for the main results (Tables 3-5, Figures 1-2).
+# Both gen types are always computed; this controls which populates the main tables.
+primary_gen_type: gen_constrained
+
+# Prompt-shot matching policy for the main 30-model matrix.
+#   "matched" → model_shot=0 uses prompt_shot=0; model_shot=2 uses prompt_shot=2
+#   "all"     → compute for every (model_shot, prompt_shot) combo available
+prompt_shot_policy: matched
+
+# Apply normalize_relation() before comparison.
+normalize: true
+
+# ──────────────────────────────────────────────────────────────────────
+# Label exclusion (per dataset)
+# ──────────────────────────────────────────────────────────────────────
+# Labels listed here are excluded from micro/macro P/R/F1 computation
+# (but still counted in schema_valid_rate and malformed_rate).
+# Use this for NA / no_relation / Other classes if desired.
+exclude_labels:
+  tacred: []              # no_relation already absent from test set
+  semeval2010_task8: []   # "Other" kept — it's a real prediction class
+  conll04: []
+  nyt11: []
+  gids: []
+  re_docred: []
+  rebel: []
+  biographical: []        # "Other" kept — it's the majority class
+  pg_fiction: []           # "none" kept
+
+# ──────────────────────────────────────────────────────────────────────
+# Dataset domain groups
+# ──────────────────────────────────────────────────────────────────────
+dataset_groups:
+  general:
+    - tacred
+    - semeval2010_task8
+    - conll04
+    - nyt11
+    - gids
+    - re_docred
+    - rebel
+  literary:
+    - biographical
+    - pg_fiction
+
+# ──────────────────────────────────────────────────────────────────────
+# Model metadata (for Table 9 and Figure 2)
+# ──────────────────────────────────────────────────────────────────────
+model_metadata:
+  SmolLM2-360M-Instruct:
+    params_b: 0.36
+    param_label: "360M"
+    scale_group: micro    # micro (<500M) or small (1-3B)
+    checkpoint_gb: null   # fill in from actual measurements
+    avg_inference_latency_ms: null
+  Qwen2.5-0.5B-Instruct:
+    params_b: 0.5
+    param_label: "0.5B"
+    scale_group: micro
+    checkpoint_gb: null
+    avg_inference_latency_ms: null
+  SmolLM3-3B:
+    params_b: 3.0
+    param_label: "3B"
+    scale_group: small
+    checkpoint_gb: null
+    avg_inference_latency_ms: null
+  Qwen2.5-3B-Instruct:
+    params_b: 3.0
+    param_label: "3B"
+    scale_group: small
+    checkpoint_gb: null
+    avg_inference_latency_ms: null
+  Llama-3.2-3B-Instruct:
+    params_b: 3.2
+    param_label: "3B"
+    scale_group: small
+    checkpoint_gb: null
+    avg_inference_latency_ms: null
+
+# ──────────────────────────────────────────────────────────────────────
+# Tuning regime display names
+# ──────────────────────────────────────────────────────────────────────
+tuning_regime_display:
+  re_gentune: GenTune
+  re_littune: LitTune
+  re_mixtune: MixTune
+
+# ──────────────────────────────────────────────────────────────────────
+# Processing
+# ──────────────────────────────────────────────────────────────────────
+processing:
+  # Only load these columns from generation CSVs (skip huge prompt columns)
+  usecols:
+    - eval_dataset_name
+    - relation
+    - gen_type
+    - model_id
+    - tuned_dataset_name
+    - model_shot
+    - prompt_shot
+    - generated_relation
+  # Chunk size for streaming large CSVs
+  chunk_size: 500_000

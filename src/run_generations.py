@@ -429,7 +429,7 @@ def main() -> None:
     # if not (0 <= args.job_index < args.job_count):
     #     raise ValueError("--job_index must be in [0..job_count-1]")
 
-    cfg = yaml.safe_load(Path("../configs/generations.yaml").read_text(encoding="utf-8"))
+    cfg = yaml.safe_load(Path("configs/generations.yaml").read_text(encoding="utf-8"))
     # cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
 
     # HF auth
