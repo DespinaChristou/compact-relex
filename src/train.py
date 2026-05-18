@@ -429,6 +429,7 @@ def run_finetune_job(
             quantization_config=bnb_cfg,
             device_map="auto",
             dtype=compute_dtype,
+            attn_implementation="flash_attention_2",
         )
 
         # Important for QLoRA stability + memory (activations):
@@ -537,6 +538,8 @@ def run_finetune_job(
         report_to=["tensorboard"],
         bf16=True,
         fp16=False,
+        dataloader_num_workers=4,
+        dataloader_pin_memory=True,
         **extra_args,
     )
 
