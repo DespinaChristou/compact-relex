@@ -1,0 +1,92 @@
+# configs/experiments_dapt_casestudy.yaml
+#
+# DAPT Case Study: Fine-tune the Llama-3.2-3B-Instruct DAPT checkpoint
+# on all three tuning regimes (GenTune, LitTune, MixTune), 0-shot only.
+#
+# The DAPT checkpoint (Despina/Llama-3.2-3B-Instruct-lit-dapt) already exists
+# on HF — this config only runs the fine-tuning stage.
+#
+# Usage:
+#   python -m src.run_all --config configs/experiments_dapt_casestudy.yaml --stage finetune
+#
+# This produces 3 fine-tuned checkpoints:
+#   Despina/Llama-3.2-3B-Instruct-lit-dapt-re_gentune-0-shot
+#   Despina/Llama-3.2-3B-Instruct-lit-dapt-re_littune-0-shot
+#   Despina/Llama-3.2-3B-Instruct-lit-dapt-re_mixtune-0-shot
+
+hf:
+  token:
+  token_env: HF_TOKEN
+  org_or_user: Despina
+  private: true
+
+paths:
+  runs_dir: runs
+
+shots: [ 0 ]    # 0-shot only for focused case study
+
+dapt:
+  enabled: false   # DAPT already done — skip this stage
+
+finetune:
+  enabled: true
+  output_subdir: finetune
+
+  datasets:
+    re_mixtune: Despina/re_mixtune
+
+  # Only fine-tune the Llama DAPT model (listed directly in models[] below)
+  only_models: null
+  skip_models: null
+  include_dapt_models: false   # DAPT model is specified directly in models[]
+
+  max_seq_length: 1024
+  learning_rate: 1.0e-4
+  num_train_epochs: 2
+  per_device_train_batch_size: 32
+  gradient_accumulation_steps: 1
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  save_steps: 10000
+  eval_steps: 20000
+  logging_steps: 200
+
+  preprocessing:
+    num_proc: 16
+    map_batch_size: 256
+
+  max_train_samples: 200000
+  max_eval_samples: 20000
+
+  qlora:
+    enabled: true
+    load_in_4bit: true
+    bnb_4bit_quant_type: nf4
+    bnb_4bit_compute_dtype: bfloat16
+    bnb_4bit_use_double_quant: true
+
+    lora_r: 64
+    lora_alpha: 128
+    lora_dropout: 0.05
+    target_modules: [ q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj ]
+    bias: none
+    task_type: CAUSAL_LM
+    optim: paged_adamw_8bit
+
+    merge_full_weights: false
+    merged_torch_dtype: bfloat16
+
+    per_model:
+      Llama-3.2-3B-Instruct-lit-dapt: { lora_r: 64, lora_alpha: 128 }
+
+# Model definition — ONLY the DAPT checkpoint (not the base Llama)
+models:
+  - id: Llama-3.2-3B-Instruct-lit-dapt
+    base_model: Despina/Llama-3.2-3B-Instruct-lit-dapt
+    family: llama
+
+prompting:
+  templates:
+    llama:
+      kind: chat_template
+  system_prompt: "You are an expert relation extraction system. Answer with only the relation label."

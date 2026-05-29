@@ -1,5 +1,5 @@
 hf:
-  token: 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
+  token:
   token_env: HF_TOKEN
   org_or_user: Despina
   private: true

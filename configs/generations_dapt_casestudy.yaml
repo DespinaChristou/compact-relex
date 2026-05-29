@@ -1,0 +1,88 @@
+# configs/generations_dapt_casestudy.yaml
+#
+# Generate predictions from the DAPT case study fine-tuned checkpoints.
+# Table 6 needs: LitTune + MixTune on Biographical and PG-Fiction only.
+#
+# Checkpoints (produced by experiments_dapt_casestudy.yaml):
+#   Despina/Llama-3.2-3B-Instruct-lit-dapt-re_littune-0-shot
+#   Despina/Llama-3.2-3B-Instruct-lit-dapt-re_mixtune-0-shot
+#
+# Usage:
+#   python -m src.run_generations --config configs/generations_dapt_casestudy.yaml
+
+hf:
+  token: ""
+  token_env: HF_TOKEN
+  org_or_user: Despina
+  private: true
+
+paths:
+  runs_dir: ../runs
+  output_subdir: generations_dapt   # separate output dir
+
+# Only literary benchmarks needed for Table 6
+eval_datasets:
+  - name: biographical
+    repo: Despina/biographical
+    subset: subsampled
+    split: test
+  - name: pg_fiction
+    repo: Despina/project-gutenberg-fiction-relations
+    subset: null
+    split: test
+
+eval_groups:
+  littune: all
+  mixtune: all
+
+tuned_dataset_to_group:
+  re_littune: littune
+  re_mixtune: mixtune
+
+tuned_datasets:
+  - re_littune
+  - re_mixtune
+
+shots: [ 0 ]
+
+models:
+  include_dapt_models: false   # We specify the DAPT model ID directly below
+  ids:
+    - Llama-3.2-3B-Instruct-lit-dapt    # Resolves to Despina/Llama-3.2-3B-Instruct-lit-dapt-{dataset}-{shot}-shot
+
+# Run both for Table 6 (constrained is primary) and for completeness
+gen_types:
+  - gen_constrained
+  - gen_open
+
+generation:
+  batch_size: 8
+  max_new_tokens: 128
+  do_sample: true
+  temperature: 0.001
+  top_p: 1.0
+  repetition_penalty: 1.0
+
+label_sets:
+  enabled: true
+  compute_from:
+    split: test
+    relation_column: relation
+    max_rows: null
+
+prompts:
+  system_open: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY the relation type that holds between the two mentioned entities.
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+  system_constrained_template: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY ONE relation type that holds between the two mentioned entities.
+    You MUST choose exactly one label from this allowed set:
+    {allowed_labels}
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+output:
+  format: csv
+  sharded: true

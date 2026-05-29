@@ -1,0 +1,127 @@
+# configs/generations_crossdomain.yaml
+#
+# Cross-domain evaluation config.
+# Only difference from generations.yaml: eval group restrictions are removed
+# so GenTune models also run on literary datasets, and LitTune models run on
+# general datasets. MixTune is unchanged (already runs on all).
+#
+# Usage:
+#   python -m src.run_generations --config configs/generations_crossdomain.yaml
+#   # Multi-GPU:
+#   CUDA_VISIBLE_DEVICES=0 python -m src.run_generations --config configs/generations_crossdomain.yaml --job_count 4 --job_index 0
+
+hf:
+  token:
+  token_env: HF_TOKEN
+  org_or_user: Despina
+  private: true
+
+paths:
+  runs_dir: ../runs
+  output_subdir: generations_crossdomain   # separate output dir to avoid mixing with original runs
+
+# Same eval datasets as original
+eval_datasets:
+  - name: tacred
+    repo: Despina/tacred
+    subset: null
+    split: test
+  - name: semeval2010_task8
+    repo: Despina/semeval2010_task8
+    subset: null
+    split: test
+  - name: conll04
+    repo: Despina/conll04
+    subset: null
+    split: test
+  - name: nyt11
+    repo: Despina/nyt_11
+    subset: null
+    split: test
+  - name: gids
+    repo: Despina/gids
+    subset: null
+    split: test
+  - name: re_docred
+    repo: Despina/re-docred
+    subset: null
+    split: test
+  - name: rebel
+    repo: Despina/rebel-dataset
+    subset: subsampled
+    split: test
+  - name: biographical
+    repo: Despina/biographical
+    subset: subsampled
+    split: test
+  - name: pg_fiction
+    repo: Despina/project-gutenberg-fiction-relations
+    subset: null
+    split: test
+
+# KEY CHANGE: all groups now map to "all" so every tuned model is evaluated
+# on every dataset (cross-domain evaluation).
+eval_groups:
+  gentune: all
+  littune: all
+  mixtune: all
+
+tuned_dataset_to_group:
+  re_gentune: gentune
+  re_littune: littune
+  re_mixtune: mixtune
+
+# Only run the cross-domain combos we're missing:
+#   - GenTune on literary datasets
+#   - LitTune on general datasets
+# MixTune already has everything, so we exclude it.
+tuned_datasets:
+  - re_gentune
+  - re_littune
+
+shots: [ 0 ]    # 0-shot only to reduce compute (~halves runtime)
+
+# Only run constrained generations (skip gen_open to halve runtime further)
+gen_types:
+  - gen_constrained
+
+models:
+  include_dapt_models: false
+  ids:
+    - SmolLM2-360M-Instruct
+    - Qwen2.5-0.5B-Instruct
+    - SmolLM3-3B
+    - Qwen2.5-3B-Instruct
+    - Llama-3.2-3B-Instruct
+
+generation:
+  batch_size: 64
+  max_new_tokens: 128
+  do_sample: true
+  temperature: 0.001
+  top_p: 1.0
+  repetition_penalty: 1.0
+
+label_sets:
+  enabled: true
+  compute_from:
+    split: test
+    relation_column: relation
+    max_rows: null
+
+prompts:
+  system_open: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY the relation type that holds between the two mentioned entities.
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+  system_constrained_template: >-
+    You are a relation extraction system. Be concise and direct.
+    Output ONLY ONE relation type that holds between the two mentioned entities.
+    You MUST choose exactly one label from this allowed set:
+    {allowed_labels}
+    Do not output any explanation, punctuation, or extra. text—only the label.
+
+output:
+  format: csv
+  sharded: true
