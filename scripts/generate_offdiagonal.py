@@ -19,6 +19,9 @@ Generate (shard across GPUs, like scripts/rerun_broken_generations.py):
     CUDA_VISIBLE_DEVICES=0 python scripts/generate_offdiagonal.py --batch_size 32 --shard_count 2 --shard_index 0
     CUDA_VISIBLE_DEVICES=1 python scripts/generate_offdiagonal.py --batch_size 32 --shard_count 2 --shard_index 1
 
+For a cheap 2x2 estimate, cap examples per dataset (deterministic subsample):
+    python scripts/generate_offdiagonal.py --batch_size 32 --max_per_dataset 2000
+
 Splice the (0,2) rows into the merged eval generations (run LOCALLY, no GPU; points
 at the in-repo runs/ where the merged CSVs live):
     python scripts/generate_offdiagonal.py --splice_only --runs_dir runs
@@ -31,6 +34,7 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+import random
 import re
 import sys
 import time
@@ -149,6 +153,10 @@ def main() -> None:
                     help="Override runs/ location (set --runs_dir runs when splicing locally).")
     ap.add_argument("--max_new_tokens", type=int, default=64)
     ap.add_argument("--batch_size", type=int, default=8)
+    ap.add_argument("--max_per_dataset", type=int, default=None,
+                    help="Subsample to at most N examples per eval dataset "
+                         "(deterministic, seed 42; same subset on every shard). "
+                         "Default: full test set. Use e.g. 2000 for a cheap 2x2 estimate.")
     ap.add_argument("--shard_count", type=int, default=1)
     ap.add_argument("--shard_index", type=int, default=0)
     ap.add_argument("--only_model", default=None, choices=MODELS)
@@ -213,10 +221,14 @@ def main() -> None:
                     relation_column=rcol, max_rows=cmax, token=token))
                 sys_constrained = sys_constrained_tmpl.format(allowed_labels=allowed)
 
-                assigned = [i for i in range(len(user)) if i % args.shard_count == args.shard_index]
+                # Optional deterministic subsample (same indices on every shard), then shard.
+                sel = list(range(len(user)))
+                if args.max_per_dataset and len(sel) > args.max_per_dataset:
+                    sel = sorted(random.Random(42).sample(sel, args.max_per_dataset))
+                assigned = [sel[k] for k in range(len(sel)) if k % args.shard_count == args.shard_index]
                 nb = math.ceil(len(assigned) / args.batch_size) if assigned else 0
-                log.info(f"  [{eval_name}] {len(assigned)}/{len(user)} examples "
-                         f"(shard {args.shard_index}/{args.shard_count}), {nb} batches")
+                log.info(f"  [{eval_name}] {len(assigned)}/{len(sel)} examples "
+                         f"(subsample of {len(user)}; shard {args.shard_index}/{args.shard_count}), {nb} batches")
                 rows: List[Dict[str, Any]] = []
                 t0 = time.time()
                 for bn, pos in enumerate(_batched_indices(len(assigned), args.batch_size), 1):
