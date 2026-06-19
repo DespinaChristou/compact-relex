@@ -37,6 +37,7 @@ logs/
 
 # Local runs: checkpoints, logs, artifacts
 runs/
+stage1_diagnostics/
 
 # Hugging Face / datasets caches
 .cache/
