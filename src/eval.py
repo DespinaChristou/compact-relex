@@ -115,16 +115,26 @@ def compute_micro_metrics(
     gold: List[str],
     pred: List[str],
     exclude_labels: Optional[Set[str]] = None,
+    negative_labels: Optional[Set[str]] = None,
 ) -> Dict[str, float]:
     """Compute micro-averaged Precision, Recall, F1.
 
-    For single-label classification micro-P = micro-R = micro-F1 = accuracy,
-    but we compute via the TP/FP/FN route so the function generalises.
+    With ``negative_labels`` set, micro-P/R/F1 are computed over the *positive*
+    classes only (positive-class micro-F1): the catch-all/no-relation labels are
+    dropped from the averaged classes, but a positive prediction on a catch-all
+    gold still counts as a false positive, and a catch-all prediction on a
+    positive gold as a false negative. Without it, all classes are counted and
+    micro-P = micro-R = micro-F1 = accuracy.
+
+    The ``accuracy`` field is always the all-class accuracy (fraction of exact
+    matches), independent of ``negative_labels``.
 
     Parameters
     ----------
     gold, pred : parallel lists of normalised labels
     exclude_labels : labels to drop from *both* gold and pred rows before eval
+    negative_labels : catch-all/no-relation labels to exclude from the positive
+        class set (enables positive-class micro-F1)
 
     Returns
     -------
@@ -147,7 +157,14 @@ def compute_micro_metrics(
         gold, pred = zip(*pairs)
         gold, pred = list(gold), list(pred)
 
-    counts = _confusion_counts(gold, pred)
+    n = len(gold)
+    accuracy = _safe_div(sum(1 for g, p in zip(gold, pred) if g == p), n)
+
+    if negative_labels:
+        labels = (set(gold) | set(pred)) - set(negative_labels)
+        counts = _confusion_counts(gold, pred, labels=labels)
+    else:
+        counts = _confusion_counts(gold, pred)
 
     total_tp = sum(c["tp"] for c in counts.values())
     total_fp = sum(c["fp"] for c in counts.values())
@@ -156,7 +173,6 @@ def compute_micro_metrics(
     precision = _safe_div(total_tp, total_tp + total_fp)
     recall = _safe_div(total_tp, total_tp + total_fn)
     f1 = _safe_div(2 * precision * recall, precision + recall)
-    accuracy = _safe_div(total_tp, len(gold))
 
     return {
         "micro_precision": round(precision, 6),
@@ -176,10 +192,14 @@ def compute_macro_metrics(
     gold: List[str],
     pred: List[str],
     exclude_labels: Optional[Set[str]] = None,
+    negative_labels: Optional[Set[str]] = None,
 ) -> Dict[str, float]:
     """Compute macro-averaged Precision, Recall, F1.
 
-    Each class contributes equally regardless of support.
+    Each class contributes equally regardless of support. With
+    ``negative_labels`` set, the catch-all/no-relation classes are dropped from
+    the averaged set (positive-class macro-F1), while still penalising
+    positive-vs-catch-all confusions via per-class FP/FN.
     """
     if exclude_labels:
         pairs = [(g, p) for g, p in zip(gold, pred) if g not in exclude_labels]
@@ -192,8 +212,8 @@ def compute_macro_metrics(
         gold, pred = zip(*pairs)
         gold, pred = list(gold), list(pred)
 
-    # Only macro-average over classes that appear in gold
-    gold_labels = sorted(set(gold))
+    # Macro-average over the positive gold classes (drop negatives if given)
+    gold_labels = sorted(set(gold) - (set(negative_labels) if negative_labels else set()))
     counts = _confusion_counts(gold, pred, labels=gold_labels)
 
     precisions, recalls, f1s = [], [], []
@@ -222,10 +242,12 @@ def compute_per_class_metrics(
     gold: List[str],
     pred: List[str],
     exclude_labels: Optional[Set[str]] = None,
+    negative_labels: Optional[Set[str]] = None,
 ) -> pd.DataFrame:
     """Return a DataFrame with per-class P / R / F1 / support.
 
-    Rows are sorted by support (descending).
+    Rows are sorted by support (descending). With ``negative_labels`` set, the
+    catch-all/no-relation classes are omitted from the breakdown.
     """
     if exclude_labels:
         pairs = [(g, p) for g, p in zip(gold, pred) if g not in exclude_labels]
@@ -236,7 +258,7 @@ def compute_per_class_metrics(
         gold, pred = zip(*pairs)
         gold, pred = list(gold), list(pred)
 
-    gold_labels = sorted(set(gold))
+    gold_labels = sorted(set(gold) - (set(negative_labels) if negative_labels else set()))
     counts = _confusion_counts(gold, pred, labels=gold_labels)
 
     rows = []
@@ -336,6 +358,7 @@ def evaluate_slice(
     pred: List[str],
     allowed_labels: Optional[Set[str]] = None,
     exclude_labels: Optional[Set[str]] = None,
+    negative_labels: Optional[Set[str]] = None,
     normalize: bool = True,
 ) -> Dict[str, float]:
     """Run all metrics on a single (model_config × dataset) slice.
@@ -363,8 +386,12 @@ def evaluate_slice(
     if exclude_labels:
         excl = {normalize_relation(e) for e in exclude_labels} if normalize else exclude_labels
 
-    micro = compute_micro_metrics(gold_n, pred_n, exclude_labels=excl)
-    macro = compute_macro_metrics(gold_n, pred_n, exclude_labels=excl)
+    neg = None
+    if negative_labels:
+        neg = {normalize_relation(x) for x in negative_labels} if normalize else set(negative_labels)
+
+    micro = compute_micro_metrics(gold_n, pred_n, exclude_labels=excl, negative_labels=neg)
+    macro = compute_macro_metrics(gold_n, pred_n, exclude_labels=excl, negative_labels=neg)
 
     result = {**micro, **macro}
 

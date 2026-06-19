@@ -184,9 +184,12 @@ def evaluate_dataset(
     allowed_labels = _get_allowed_labels(df)
     exclude_labels_list = cfg.get("exclude_labels", {}).get(dataset_name, [])
     exclude_labels = set(exclude_labels_list) if exclude_labels_list else None
+    negative_labels_list = cfg.get("negative_labels", [])
+    negative_labels = set(negative_labels_list) if negative_labels_list else None
     do_normalize = cfg.get("normalize", True)
 
-    print(f"  Gold labels: {len(allowed_labels)}, exclude: {exclude_labels or 'none'}")
+    print(f"  Gold labels: {len(allowed_labels)}, exclude: {exclude_labels or 'none'}, "
+          f"negatives(pos-class): {negative_labels or 'none'}")
 
     # --- Build allowed (model_shot, prompt_shot) pairs ---
     policy = cfg.get("prompt_shot_policy", "matched")
@@ -224,6 +227,7 @@ def evaluate_dataset(
             pred=pred,
             allowed_labels=allowed_labels,
             exclude_labels=exclude_labels,
+            negative_labels=negative_labels,
             normalize=do_normalize,
         )
 
@@ -244,7 +248,8 @@ def evaluate_dataset(
         if gen_type == primary_gt and is_matched:
             gold_n = [normalize_relation(g) for g in gold] if do_normalize else gold
             pred_n = [normalize_relation(p) for p in pred] if do_normalize else pred
-            pc_df = compute_per_class_metrics(gold_n, pred_n, exclude_labels=exclude_labels)
+            pc_df = compute_per_class_metrics(gold_n, pred_n, exclude_labels=exclude_labels,
+                                              negative_labels=negative_labels)
             if not pc_df.empty:
                 safe_name = f"{model_id}__{tuned_ds}__ms{int(m_shot)}_ps{int(p_shot)}.csv"
                 pc_df.to_csv(per_class_dataset_dir / safe_name, index=False)

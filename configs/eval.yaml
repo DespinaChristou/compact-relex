@@ -26,6 +26,23 @@ prompt_shot_policy: matched
 normalize: true
 
 # ──────────────────────────────────────────────────────────────────────
+# Positive-class metric
+# ──────────────────────────────────────────────────────────────────────
+# Catch-all / no-relation surface forms, unified to one negative class.
+# When set, micro_f1 and macro_f1 become POSITIVE-CLASS (these labels are
+# dropped from the averaged classes, but positive-vs-catch-all confusions are
+# still penalised as FP/FN). `accuracy` remains all-class. This is the paper's
+# primary metric (Section 3.8). Leave empty to fall back to all-class micro=acc.
+negative_labels:
+  - none
+  - other
+  - no_relation
+  - na
+  - nan
+  - "null"
+  - ""
+
+# ──────────────────────────────────────────────────────────────────────
 # Label exclusion (per dataset)
 # ──────────────────────────────────────────────────────────────────────
 # Labels listed here are excluded from micro/macro P/R/F1 computation
