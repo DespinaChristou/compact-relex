@@ -31,9 +31,15 @@ def normalize_relation(text: str) -> str:
       3. Lowercase.
       4. Collapse internal whitespace runs to single space.
       5. Strip common quoting artifacts (" or ').
+      6. Map empty / nan-like outputs to the literal label "none".
+
+    Step 6 mirrors ``src/run_generations.py:_normalize_label`` (which writes
+    empty/abstained outputs as "none") and the gold "none" no-relation class.
+    Without it, a model that correctly abstains (empty output) on a "none"
+    example is scored as wrong + malformed instead of a correct "none".
     """
     if text is None or (isinstance(text, float) and np.isnan(text)):
-        return ""
+        return "none"
     s = str(text).strip()
     # First line only
     s = s.split("\n")[0].strip()
@@ -44,6 +50,9 @@ def normalize_relation(text: str) -> str:
     # Strip surrounding quotes
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
         s = s[1:-1].strip()
+    # Empty / nan-like → "none" (consistent with the generation-side normaliser)
+    if s in ("", "nan", "null", "none"):
+        return "none"
     return s
 
 
