@@ -28,7 +28,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.eval import normalize_relation, top_confused_pairs
+from src.eval import normalize_relation, top_confused_pairs, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 
 def _load_config(path: str) -> dict:
@@ -104,7 +104,7 @@ def analyse_dataset(
     df = pd.concat(chunks, ignore_index=True)
 
     # Filter to primary settings
-    gt = cfg.get("primary_gen_type", "gen_constrained")
+    gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
     df = df[df["gen_type"] == gt].copy()
     df = df[df["model_shot"] == df["prompt_shot"]].copy()
 
@@ -267,7 +267,7 @@ def build_cross_model_error_table(
     df = pd.concat(chunks, ignore_index=True)
 
     # Filter
-    gt = cfg.get("primary_gen_type", "gen_constrained")
+    gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
     df = df[(df["gen_type"] == gt) & (df["model_shot"] == df["prompt_shot"])].copy()
     df = df.drop_duplicates()
 

@@ -18,7 +18,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.eval import evaluate_slice
+from src.eval import evaluate_slice, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 DAPT_DIR = ROOT / "runs" / "generations_dapt"
 
@@ -127,7 +127,7 @@ def main():
     print(f"Tuned datasets: {sorted(df['tuned_dataset_name'].unique())}")
 
     # Filter to gen_constrained
-    df = df[df["gen_type"] == "gen_constrained"]
+    df = df[df["gen_type"] == GEN_SCHEMA_ENUMERATED]
     print(f"After filtering to gen_constrained: {len(df):,} rows")
 
     # Evaluate each slice
@@ -145,7 +145,7 @@ def main():
             "tuned_dataset_name": tuned_ds,
             "model_shot": ms,
             "prompt_shot": ps,
-            "gen_type": "gen_constrained",
+            "gen_type": GEN_SCHEMA_ENUMERATED,
             **metrics,
         })
         print(f"  {model_id:40s} | {tuned_ds:12s} | {ds_name:20s} | F1={metrics['micro_f1']:.4f}")
@@ -161,7 +161,7 @@ def main():
     existing = pd.read_csv(indomain_path, dtype={"model_shot": str, "prompt_shot": str})
     llama_base = existing[
         (existing["model_id"] == "Llama-3.2-3B-Instruct") &
-        (existing["gen_type"] == "gen_constrained") &
+        (existing["gen_type"] == GEN_SCHEMA_ENUMERATED) &
         (existing["model_shot"] == "0") &
         (existing["prompt_shot"] == "0")
     ].copy()

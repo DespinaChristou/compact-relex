@@ -81,7 +81,8 @@ tuned_datasets:
 
 shots: [ 0 ]    # 0-shot only to reduce compute (~halves runtime)
 
-# Only run constrained generations (skip gen_open to halve runtime further)
+# Only run schema-enumerated generations (gen_constrained); skip gen_open
+# ("generic prompting") to halve runtime further. See src/eval.py for the code<->paper mapping.
 gen_types:
   - gen_constrained
 

@@ -20,7 +20,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.eval import evaluate_slice, normalize_relation
+from src.eval import evaluate_slice, normalize_relation, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 CROSSDOMAIN_DIR = ROOT / "runs" / "generations_crossdomain"
 
@@ -125,8 +125,8 @@ def evaluate_crossdomain(df: pd.DataFrame) -> pd.DataFrame:
 def build_transfer_table(cross_df: pd.DataFrame, indomain_df: pd.DataFrame) -> pd.DataFrame:
     """Build comparison table: in-domain F1 vs cross-domain F1 vs delta."""
     # Focus on gen_constrained for cleaner comparison
-    cross_c = cross_df[cross_df["gen_type"] == "gen_constrained"].copy()
-    indomain_c = indomain_df[indomain_df["gen_type"] == "gen_constrained"].copy()
+    cross_c = cross_df[cross_df["gen_type"] == GEN_SCHEMA_ENUMERATED].copy()
+    indomain_c = indomain_df[indomain_df["gen_type"] == GEN_SCHEMA_ENUMERATED].copy()
 
     rows = []
 

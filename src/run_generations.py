@@ -38,11 +38,15 @@ Generation types
 ----------------
 We produce two generations for each example:
 
-- gen_open:
+- gen_open  (paper terminology: "generic prompting"):
     system prompt is generic (no label-set restriction).
 
-- gen_constrained:
-    system prompt includes an explicit allowed label set for the evaluation dataset.
+- gen_constrained  (paper terminology: "schema-enumerated prompting"):
+    system prompt enumerates an explicit allowed label set for the evaluation dataset.
+    NOTE: this is a prompt-level (advisory) signal, NOT decoder-level constrained
+    decoding -- the model can still emit out-of-schema labels. The string codes
+    "gen_open" / "gen_constrained" are retained as stored data identifiers; see
+    src/eval.py (GEN_GENERIC / GEN_SCHEMA_ENUMERATED).
 
 Allowed labels for gen_constrained are computed per evaluation dataset by loading a
 configurable split (label_sets.compute_from.split) and taking unique relation labels

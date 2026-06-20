@@ -28,6 +28,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from src.eval import GEN_SCHEMA_ENUMERATED, GEN_GENERIC
+
 
 def _load_config(path: str) -> dict:
     with open(path) as f:
@@ -48,7 +50,7 @@ def _load_metrics(cfg: dict) -> pd.DataFrame:
 
 
 def _filter_primary(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
-    gt = cfg.get("primary_gen_type", "gen_constrained")
+    gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
     out = df[df["gen_type"] == gt].copy()
     policy = cfg.get("prompt_shot_policy", "matched")
     if policy == "matched":
@@ -70,6 +72,20 @@ def build_heatmap(df: pd.DataFrame, cfg: dict, out_path: Path):
 
     # Build row labels
     primary = primary.copy()
+
+    # SmolLM3-3B MixTune 0-shot is reported under the pre-specified DEFAULT protocol,
+    # where this reasoning model emits <think> tokens in place of a label and scores 0
+    # (Section 4). per_dataset_metrics.csv stores the post-hoc "reasoning-disabled"
+    # recovery (~0.18); for the headline heatmap we show the default-primary value (0) so
+    # the figure agrees with Table 3 and the full-results matrix. The 0.18 recovery is
+    # reported only in the text/footnotes as a post-hoc rescue.
+    _default_zero = (
+        (primary["model_id"] == "SmolLM3-3B")
+        & (primary["tuned_dataset_name"] == "re_mixtune")
+        & (primary["model_shot"] == 0)
+    )
+    primary.loc[_default_zero, "micro_f1"] = 0.0
+
     primary["row_label"] = (
         primary["model_id"]
         + " | "
@@ -153,70 +169,87 @@ def build_heatmap(df: pd.DataFrame, cfg: dict, out_path: Path):
 # ═══════════════════════════════════════════════════════════════════
 
 def build_scaling_plot(df: pd.DataFrame, cfg: dict, out_path: Path):
+    """Within-family scale plot. Model scale is confounded with family (tokenizer,
+    pretraining, instruction tuning), so we connect lines ONLY within a family
+    (Qwen2.5 0.5B->3B; SmolLM 360M->3B) and draw Llama-3.2-3B as an isolated 3B
+    point (no sub-billion counterpart). We deliberately do NOT draw a single trend
+    across the unrelated architectures, to avoid implying a continuous scaling law."""
+    from matplotlib.lines import Line2D
+
     primary = _filter_primary(df, cfg)
     model_meta = cfg.get("model_metadata", {})
 
-    # Compute overall avg F1 per (model_id, model_shot, tuned_dataset_name)
-    records = []
-    for (model_id, m_shot, tuned_ds), grp in primary.groupby(
-        ["model_id", "model_shot", "tuned_dataset_name"]
-    ):
-        overall_f1 = grp["micro_f1"].mean()
-        meta = model_meta.get(model_id, {})
-        params_b = meta.get("params_b", np.nan)
+    # Pre-specified exclusion (Section 4): the two 0-shot decoding/template artifacts.
+    _anom = (
+        ((primary["model_id"] == "SmolLM3-3B")
+         & (primary["tuned_dataset_name"] == "re_mixtune") & (primary["model_shot"] == 0))
+        | ((primary["model_id"] == "Qwen2.5-3B-Instruct")
+           & (primary["tuned_dataset_name"] == "re_gentune") & (primary["model_shot"] == 0))
+    )
+    primary = primary[~_anom].copy()
 
-        records.append({
-            "model_id": model_id,
-            "params_b": params_b,
-            "prompt_style": f"{int(m_shot)}-shot",
-            "tuning_regime": _display_regime(tuned_ds, cfg),
-            "overall_avg_f1": overall_f1,
-        })
+    FAMILY = {"SmolLM2-360M-Instruct": "SmolLM", "SmolLM3-3B": "SmolLM",
+              "Qwen2.5-0.5B-Instruct": "Qwen", "Qwen2.5-3B-Instruct": "Qwen",
+              "Llama-3.2-3B-Instruct": "Llama"}
+    PAIRS = {"Qwen": ("Qwen2.5-0.5B-Instruct", "Qwen2.5-3B-Instruct"),
+             "SmolLM": ("SmolLM2-360M-Instruct", "SmolLM3-3B")}
+    FAM_COLOR = {"Qwen": "#2C7FB8", "SmolLM": "#41AB5D", "Llama": "#E6550D"}
 
-    plot_df = pd.DataFrame(records)
+    def pbf(m):
+        return model_meta.get(m, {}).get("params_b", np.nan)
 
-    if plot_df.empty:
-        print("  No data for scaling plot.")
-        return
+    # regime-average F1 per (model, regime, shot)
+    rec = (primary.groupby(["model_id", "tuned_dataset_name", "model_shot"])["micro_f1"]
+                  .mean().reset_index())
+    rec["params_b"] = rec["model_id"].map(pbf)
 
-    # Plot: one line per (tuning_regime, prompt_style)
-    fig, ax = plt.subplots(figsize=(10, 6))
+    regimes = [("re_gentune", "GenTune"), ("re_littune", "LitTune"), ("re_mixtune", "MixTune")]
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=True)
 
-    regime_colors = {"GenTune": "#2196F3", "LitTune": "#4CAF50", "MixTune": "#FF9800"}
-    shot_markers = {"0-shot": "o", "2-shot": "s"}
-    shot_linestyles = {"0-shot": "--", "2-shot": "-"}
+    def style(shot, color):
+        # 0-shot: dashed line, open marker; 2-shot: solid line, filled marker
+        return dict(linestyle=("--" if shot == 0 else "-"),
+                    marker=("o" if shot == 0 else "s"),
+                    color=color, mec=color,
+                    mfc=("white" if shot == 0 else color), ms=8, lw=1.7)
 
-    for (regime, shot), sub in plot_df.groupby(["tuning_regime", "prompt_style"]):
-        sub = sub.sort_values("params_b")
-        color = regime_colors.get(regime, "gray")
-        marker = shot_markers.get(shot, "D")
-        ls = shot_linestyles.get(shot, "-")
+    for ax, (reg, rn) in zip(axes, regimes):
+        sub = rec[rec["tuned_dataset_name"] == reg]
+        # within-family lines (connect only same-family sizes)
+        for fam, (sm, bg) in PAIRS.items():
+            for shot in (0, 2):
+                pts = sub[(sub["model_id"].isin([sm, bg])) & (sub["model_shot"] == shot)].sort_values("params_b")
+                if len(pts) == 2:
+                    ax.plot(pts["params_b"], pts["micro_f1"], zorder=3, **style(shot, FAM_COLOR[fam]))
+                elif len(pts) == 1:  # one endpoint excluded as a 0-shot anomaly -> lone point
+                    st = style(shot, FAM_COLOR[fam]); st.pop("linestyle"); st.pop("lw")
+                    ax.plot(pts["params_b"], pts["micro_f1"], zorder=3, **st)
+        # Llama: isolated 3B points, no connecting line
+        for _, r in sub[sub["model_id"] == "Llama-3.2-3B-Instruct"].iterrows():
+            st = style(int(r["model_shot"]), FAM_COLOR["Llama"]); st.pop("linestyle"); st.pop("lw")
+            ax.plot(r["params_b"], r["micro_f1"], zorder=4, **st)
 
-        ax.plot(
-            sub["params_b"],
-            sub["overall_avg_f1"],
-            marker=marker,
-            linestyle=ls,
-            color=color,
-            label=f"{regime} ({shot})",
-            markersize=7,
-            linewidth=1.5,
-            alpha=0.85,
-        )
+        ax.set_xscale("log")
+        ax.minorticks_off()  # drop the log minor-tick labels (3e-1, 2e0, ...) that clash
+        ax.set_xticks([0.36, 0.5, 3.0])
+        ax.set_xticklabels(["360M", "0.5B", "3B"])
+        ax.set_xlim(0.30, 4.0)
+        ax.set_title(rn, fontsize=12)
+        ax.set_xlabel("Parameters (log scale)", fontsize=11)
+        ax.grid(True, alpha=0.3)
 
-    ax.set_xlabel("Parameters (Billions)", fontsize=12)
-    ax.set_ylabel("Overall Average F1", fontsize=12)
-    ax.set_title("Scaling Trends: Overall Avg F1 by Model Size", fontsize=13, pad=12)
-
-    # X-axis: log-ish scale with specific ticks
-    ax.set_xscale("log")
-    ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:.1f}B" if x >= 1 else f"{x*1000:.0f}M"))
-    ax.set_xlim(0.2, 5)
-
-    ax.legend(fontsize=9, loc="lower right", ncol=2)
-    ax.grid(True, alpha=0.3)
-
-    plt.tight_layout()
+    axes[0].set_ylabel("Avg positive-class micro-F1", fontsize=11)
+    legend = [
+        Line2D([], [], color=FAM_COLOR["Qwen"], marker="s", lw=1.7, label=r"Qwen2.5 (0.5B$\to$3B)"),
+        Line2D([], [], color=FAM_COLOR["SmolLM"], marker="s", lw=1.7, label=r"SmolLM (360M$\to$3B)"),
+        Line2D([], [], color=FAM_COLOR["Llama"], marker="s", ls="none", label="Llama-3.2-3B (3B only)"),
+        Line2D([], [], color="gray", ls="--", marker="o", mfc="white", label="0-shot"),
+        Line2D([], [], color="gray", ls="-", marker="s", label="2-shot"),
+    ]
+    axes[-1].legend(handles=legend, fontsize=8.5, loc="lower right", frameon=True)
+    fig.suptitle("Within-family scaling: lines connect same-family sizes; the three 3B points are distinct "
+                 "architectures, not a continuous scaling curve", fontsize=11.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Figure 2 → {out_path}")
@@ -247,10 +280,10 @@ def build_schema_valid_comparison(df: pd.DataFrame, cfg: dict, out_path: Path):
     x = np.arange(len(pivot))
     width = 0.35
 
-    if "gen_open" in pivot.columns:
-        ax.bar(x - width/2, pivot["gen_open"], width, label="Open", color="#FF7043", alpha=0.85)
-    if "gen_constrained" in pivot.columns:
-        ax.bar(x + width/2, pivot["gen_constrained"], width, label="Constrained", color="#42A5F5", alpha=0.85)
+    if GEN_GENERIC in pivot.columns:
+        ax.bar(x - width/2, pivot[GEN_GENERIC], width, label="Open", color="#FF7043", alpha=0.85)
+    if GEN_SCHEMA_ENUMERATED in pivot.columns:
+        ax.bar(x + width/2, pivot[GEN_SCHEMA_ENUMERATED], width, label="Constrained", color="#42A5F5", alpha=0.85)
 
     ax.set_xlabel("Model")
     ax.set_ylabel("Schema-Valid Output Rate")

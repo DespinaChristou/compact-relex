@@ -16,6 +16,21 @@ import pandas as pd
 
 
 # ---------------------------------------------------------------------------
+# Prompting-condition codes
+# ---------------------------------------------------------------------------
+# The two evaluation conditions are implemented as *system-prompt variants*, not
+# decoder-level constraints: the decoder is unconstrained and can still emit
+# out-of-schema labels. See the paper (Section "Implementation Details" and the
+# "Schema-Enumerated vs. Generic Prompting" appendix). The string codes below are
+# the immutable values stored in the generation/metrics data (the `gen_type`
+# column) and in the configs; the constant names map them to the paper's
+# terminology. Treat the strings as data identifiers -- do NOT rename them in the
+# stored CSVs / HF datasets.
+GEN_SCHEMA_ENUMERATED = "gen_constrained"  # paper: "schema-enumerated prompting"
+GEN_GENERIC = "gen_open"                   # paper: "generic prompting"
+
+
+# ---------------------------------------------------------------------------
 # Label normalisation
 # ---------------------------------------------------------------------------
 

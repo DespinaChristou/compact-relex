@@ -1,0 +1,62 @@
+# configs/encoder_baseline.yaml
+# ──────────────────────────────────────────────────────────────────────
+# Compact encoder-classifier RE baseline (reviewer-requested).
+# RE as sequence classification with entity markers; one classifier per
+# dataset (the standard encoder-RE setup). Scored with the SAME positive-class
+# micro/macro-F1 as the generative models (src/eval.py), so results slot into
+# the paper's tables for a head-to-head with the 0.5B-3B generative SLMs.
+# ──────────────────────────────────────────────────────────────────────
+
+# Compact encoder. roberta-base ~125M (stable, BPE tokenizer, no sentencepiece) for
+# the all-9 run; roberta-large ~355M for the general-7 stress test (pass --model).
+# NOTE: DeBERTa-v3 was dropped -- under the HF Trainer it fails to converge (loss
+# stuck at the random baseline -> collapses to a constant class) even in fp32.
+model: FacebookAI/roberta-base
+
+hf:
+  token_env: HF_TOKEN
+
+output_dir: runs/encoder_baseline
+
+# Entity-marker style: "typed" prepends entity types when the dataset provides
+# them (entity1Type/entity2Type), else falls back to plain [E1]/[E2] markers.
+marker_style: typed
+
+train:
+  epochs: 3
+  learning_rate: 2.0e-5
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1
+  max_length: 256
+  warmup_ratio: 0.06
+  weight_decay: 0.01
+  seed: 42
+  fp16: false        # DeBERTa-v3 NaNs in bf16/fp16 (loss diverges -> majority-class collapse); use fp32
+  bf16: false
+  # Cap very large train splits to control compute (null = use all).
+  # The generative grid used a 200k cap; matching that keeps the comparison fair.
+  max_train_samples: 200000
+
+eval:
+  # Unified negative/catch-all class, identical to configs/eval.yaml, so the
+  # encoder's positive-class F1 is computed the same way as the SLMs'.
+  negative_labels: [none, other, no_relation, na, nan, "null", ""]
+
+# Latency probe for the efficiency table (single-example, batch size 1).
+latency:
+  enabled: true
+  n_warmup: 5
+  n_runs: 50
+  input_tokens: 150
+
+# Datasets (all 9). Trim this list to run a subset (e.g. the general 7).
+datasets:
+  - {name: tacred,            repo: Despina/tacred,                              subset: null}
+  - {name: semeval2010_task8, repo: Despina/semeval2010_task8,                   subset: null}
+  - {name: conll04,           repo: Despina/conll04,                             subset: null}
+  - {name: nyt11,             repo: Despina/nyt_11,                              subset: null}
+  - {name: gids,              repo: Despina/gids,                                subset: null}
+  - {name: re_docred,         repo: Despina/re-docred,                           subset: null}
+  - {name: rebel,             repo: Despina/rebel-dataset,                       subset: subsampled}
+  - {name: biographical,      repo: Despina/biographical,                        subset: subsampled}
+  - {name: pg_fiction,        repo: Despina/project-gutenberg-fiction-relations, subset: null}

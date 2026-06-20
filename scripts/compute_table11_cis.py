@@ -17,6 +17,9 @@ import argparse, glob, os, re
 import numpy as np
 import pandas as pd
 
+GEN_SCHEMA_ENUMERATED = "gen_constrained"  # paper: schema-enumerated prompting
+GEN_GENERIC = "gen_open"                   # paper: generic prompting
+
 GEN = ["tacred", "semeval2010_task8", "conll04", "nyt11", "gids", "re_docred", "rebel"]
 LIT = ["biographical", "pg_fiction"]
 CATCH = {"", "none", "other", "no_relation", "na"}
@@ -70,7 +73,7 @@ def load_indicators(gen_root: str):
             d = pd.concat(frames, ignore_index=True)
         else:
             d = pd.read_csv(path, usecols=USECOLS, dtype=str, keep_default_na=False)
-        d = d[(d.gen_type == "gen_constrained") & (d.model_shot == d.prompt_shot)]
+        d = d[(d.gen_type == GEN_SCHEMA_ENUMERATED) & (d.model_shot == d.prompt_shot)]
         for (mid, reg, ms), g in d.groupby(["model_id", "tuned_dataset_name", "model_shot"]):
             try:
                 ms = int(ms)

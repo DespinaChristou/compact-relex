@@ -31,7 +31,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.eval import normalize_relation
+from src.eval import normalize_relation, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -123,7 +123,7 @@ def analyze_dataset(
     df = pd.concat(chunks, ignore_index=True)
 
     # Filter to constrained + matched
-    mask = (df["gen_type"] == "gen_constrained") & (df["model_shot"] == df["prompt_shot"])
+    mask = (df["gen_type"] == GEN_SCHEMA_ENUMERATED) & (df["model_shot"] == df["prompt_shot"])
     df = df[mask].copy()
 
     if df.empty:

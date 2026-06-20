@@ -31,6 +31,8 @@ from src.eval import (
     compute_per_class_metrics,
     evaluate_slice,
     normalize_relation,
+    GEN_SCHEMA_ENUMERATED,
+    GEN_GENERIC,
 )
 
 
@@ -243,7 +245,7 @@ def evaluate_dataset(
         results.append(row)
 
         # Per-class breakdown (only for primary gen_type + matched shots)
-        primary_gt = cfg.get("primary_gen_type", "gen_constrained")
+        primary_gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
         is_matched = (int(m_shot), int(p_shot)) in valid_combos
         if gen_type == primary_gt and is_matched:
             gold_n = [normalize_relation(g) for g in gold] if do_normalize else gold
@@ -335,7 +337,7 @@ def main():
     print(f"{'='*60}")
 
     # Summary statistics
-    primary_gt = cfg.get("primary_gen_type", "gen_constrained")
+    primary_gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
     primary = final_df[final_df["gen_type"] == primary_gt]
     if not primary.empty:
         print(f"\nSummary ({primary_gt}, all configs):")

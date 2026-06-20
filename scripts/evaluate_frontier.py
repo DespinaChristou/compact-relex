@@ -17,7 +17,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.eval import evaluate_slice, normalize_relation
+from src.eval import evaluate_slice, normalize_relation, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 # ---------------------------------------------------------------------------
 # Config
@@ -62,7 +62,7 @@ def main():
     print(f"Gen types: {sorted(df['gen_type'].unique())}")
 
     # We only care about gen_constrained, prompt_shot=0
-    df = df[df["gen_type"] == "gen_constrained"].copy()
+    df = df[df["gen_type"] == GEN_SCHEMA_ENUMERATED].copy()
     print(f"\nAfter filtering to gen_constrained: {len(df):,} rows")
 
     # ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ def main():
             row = {
                 "model_id": model_name,
                 "eval_dataset_name": ds_name,
-                "gen_type": "gen_constrained",
+                "gen_type": GEN_SCHEMA_ENUMERATED,
                 "prompt_shot": 0,
                 **metrics,
             }

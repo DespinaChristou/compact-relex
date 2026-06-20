@@ -37,7 +37,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.eval import normalize_relation, compute_micro_metrics
+from src.eval import normalize_relation, compute_micro_metrics, GEN_SCHEMA_ENUMERATED, GEN_GENERIC
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -155,7 +155,7 @@ def load_generation_data(
 
 def get_matched_constrained(df: pd.DataFrame) -> pd.DataFrame:
     """Filter to gen_constrained + model_shot==prompt_shot."""
-    mask = (df["gen_type"] == "gen_constrained") & (df["model_shot"] == df["prompt_shot"])
+    mask = (df["gen_type"] == GEN_SCHEMA_ENUMERATED) & (df["model_shot"] == df["prompt_shot"])
     return df[mask].copy()
 
 
@@ -419,7 +419,7 @@ def label_complexity_analysis(metrics_df: pd.DataFrame) -> pd.DataFrame:
     }
 
     matched = metrics_df[
-        (metrics_df["gen_type"] == "gen_constrained")
+        (metrics_df["gen_type"] == GEN_SCHEMA_ENUMERATED)
         & (metrics_df["model_shot"] == metrics_df["prompt_shot"])
     ].copy()
 

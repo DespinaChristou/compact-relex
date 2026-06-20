@@ -30,6 +30,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+GEN_SCHEMA_ENUMERATED = "gen_constrained"  # paper: schema-enumerated prompting
+GEN_GENERIC = "gen_open"                   # paper: generic prompting
+
 # Canonical, paper-consistent display names (fixes the old "GDS"/"DocRED" labels).
 DISPLAY = {
     "tacred": "TACRED",
@@ -58,8 +61,8 @@ def load_deltas(metrics_csv: Path):
     piv = d.pivot_table(
         index=["eval_dataset_name", "model_id", "tuned_dataset_name", "model_shot"],
         columns="gen_type", values="micro_f1",
-    ).dropna(subset=["gen_open", "gen_constrained"])
-    piv["delta"] = piv["gen_open"] - piv["gen_constrained"]
+    ).dropna(subset=[GEN_GENERIC, GEN_SCHEMA_ENUMERATED])
+    piv["delta"] = piv[GEN_GENERIC] - piv[GEN_SCHEMA_ENUMERATED]
 
     # per dataset: mean delta + SEM (in percentage points)
     per_ds = {}
@@ -106,7 +109,7 @@ def main():
     axA.axvline(0, color="black", lw=0.6)
     axA.set_yticks(y)
     axA.set_yticklabels(labels, fontsize=9)
-    axA.set_xlabel(r"$\Delta$F1 (open $-$ constrained), percentage points", fontsize=10)
+    axA.set_xlabel(r"$\Delta$ positive-class micro-F1 (generic $-$ schema-enum.), pp", fontsize=10)
     axA.set_title("(a) Per-dataset effect", fontsize=11)
     axA.legend(fontsize=8, loc="lower right", frameon=False)
     for yi, v, e in zip(y, vals, errs):
@@ -125,7 +128,7 @@ def main():
     axB.axhline(overall, ls="--", color=ACCENT, lw=1.2)
     axB.set_xticks(x)
     axB.set_xticklabels(bl, fontsize=9)
-    axB.set_ylabel(r"$\Delta$F1 (pp)", fontsize=10)
+    axB.set_ylabel(r"$\Delta$ pos.-class micro-F1 (pp)", fontsize=10)
     axB.set_title("(b) By model scale", fontsize=11)
     for xi, v in zip(x, bv):
         axB.text(xi, v + 0.15, f"{v:+.1f}", ha="center", va="bottom", fontsize=9)

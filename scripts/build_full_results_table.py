@@ -24,6 +24,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from src.eval import GEN_SCHEMA_ENUMERATED, GEN_GENERIC
+
 
 DATASET_ORDER = [
     "tacred", "semeval2010_task8", "conll04", "nyt11",
@@ -66,9 +68,23 @@ SHOT_ORDER = [0, 2]
 def build_matrix(metrics_df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Build the 30×9 F1 matrix from per_dataset_metrics.csv."""
     matched = metrics_df[
-        (metrics_df["gen_type"] == "gen_constrained")
+        (metrics_df["gen_type"] == GEN_SCHEMA_ENUMERATED)
         & (metrics_df["model_shot"] == metrics_df["prompt_shot"])
     ].copy()
+
+    # SmolLM3-3B MixTune 0-shot is reported at its pre-specified DEFAULT-protocol value
+    # (0; under default decoding this reasoning model emits <think> in place of a label,
+    # Section 4 of the paper). per_dataset_metrics.csv stores the post-hoc reasoning-disabled
+    # recovery (~0.18); we substitute 0 here so the appendix matrix agrees with the main
+    # summary and the heatmap. The paper adds the dagger/footnote noting the recovery.
+    # (Qwen2.5-3B GenTune 0-shot is left at its real ~0.28 score; that is a wrong-schema
+    # output, not a literal decoding artifact, and carries its own flag.)
+    _default_zero = (
+        (matched["model_id"] == "SmolLM3-3B")
+        & (matched["tuned_dataset_name"] == "re_mixtune")
+        & (matched["model_shot"] == 0)
+    )
+    matched.loc[_default_zero, "micro_f1"] = 0.0
 
     tuned_display = cfg.get("tuning_regime_display", {})
 

@@ -52,8 +52,8 @@ models:
 
 # Run both for Table 6 (constrained is primary) and for completeness
 gen_types:
-  - gen_constrained
-  - gen_open
+  - gen_constrained   # "schema-enumerated prompting" (paper term)
+  - gen_open          # "generic prompting" (paper term)
 
 generation:
   batch_size: 8

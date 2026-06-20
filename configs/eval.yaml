@@ -15,6 +15,9 @@ paths:
 
 # Which generation type to use for the main results (Tables 3-5, Figures 1-2).
 # Both gen types are always computed; this controls which populates the main tables.
+# Condition codes (paper terminology): gen_constrained = "schema-enumerated prompting",
+# gen_open = "generic prompting". These strings are data identifiers stored in the
+# gen_type column of the generations/metrics CSVs -- do not rename them in the data.
 primary_gen_type: gen_constrained
 
 # Prompt-shot matching policy for the main 30-model matrix.

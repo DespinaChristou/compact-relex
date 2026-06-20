@@ -28,6 +28,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from src.eval import GEN_SCHEMA_ENUMERATED, GEN_GENERIC
+
 
 def _load_config(path: str) -> dict:
     with open(path) as f:
@@ -60,7 +62,7 @@ def _domain_for_dataset(dataset_name: str, cfg: dict) -> str:
 
 def _filter_primary(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """Filter to primary gen_type and matched prompt-shot only."""
-    gt = cfg.get("primary_gen_type", "gen_constrained")
+    gt = cfg.get("primary_gen_type", GEN_SCHEMA_ENUMERATED)
     out = df[df["gen_type"] == gt].copy()
 
     policy = cfg.get("prompt_shot_policy", "matched")
@@ -74,6 +76,28 @@ def _display_name(tuned_ds: str, cfg: dict) -> str:
     return cfg.get("tuning_regime_display", {}).get(tuned_ds, tuned_ds)
 
 
+def _apply_default_primary(primary: pd.DataFrame) -> pd.DataFrame:
+    """Report SmolLM3-3B MixTune 0-shot at its pre-specified DEFAULT-protocol value (0).
+
+    Under default decoding this reasoning model emits <think> in place of a label and
+    scores 0 (Section 4 of the paper). per_dataset_metrics.csv stores the post-hoc
+    reasoning-disabled recovery (~0.18); for the *headline per-configuration* tables
+    (main summary, full grid) we substitute the default value so they agree with the
+    full-results matrix and the heatmap. Derived aggregates that already flag or exclude
+    this configuration (regime averages, prompt deltas, scaling) are deliberately left on
+    the as-recorded values and are not routed through this helper.
+    """
+    mask = (
+        (primary["model_id"] == "SmolLM3-3B")
+        & (primary["tuned_dataset_name"] == "re_mixtune")
+        & (primary["model_shot"] == 0)
+    )
+    if mask.any():
+        primary = primary.copy()
+        primary.loc[mask, "micro_f1"] = 0.0
+    return primary
+
+
 # ═══════════════════════════════════════════════════════════════════
 # TABLE 3: Main Summary (30-model matrix)
 # ═══════════════════════════════════════════════════════════════════
@@ -81,7 +105,7 @@ def _display_name(tuned_ds: str, cfg: dict) -> str:
 def build_table3(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """30 rows: (base_model × prompt_style × tuning_regime) with domain-avg F1."""
 
-    primary = _filter_primary(df, cfg)
+    primary = _apply_default_primary(_filter_primary(df, cfg))
     groups = cfg["dataset_groups"]
 
     rows = []
@@ -190,7 +214,11 @@ def build_table4(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 def build_table5(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """15 rows: (base_model × tuning_regime) — deltas between 2-shot and 0-shot tuning."""
 
-    primary = _filter_primary(df, cfg)
+    # Use the default-protocol baseline (0) for SmolLM3-3B MixTune 0-shot so the delta is
+    # consistent with the main summary rather than mixing in the post-hoc 0.18 recovery.
+    # The resulting delta is artifact-driven and flagged in the paper; this configuration is
+    # excluded from the scale-averaged decomposition (build below is per-config, not aggregate).
+    primary = _apply_default_primary(_filter_primary(df, cfg))
     groups = cfg["dataset_groups"]
 
     rows = []
@@ -302,7 +330,7 @@ def build_table9(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 def build_full_grid(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """30 models × 9 datasets grid of micro-F1 (source data for heatmap)."""
 
-    primary = _filter_primary(df, cfg)
+    primary = _apply_default_primary(_filter_primary(df, cfg))
 
     # Build a label for each model config
     primary = primary.copy()
