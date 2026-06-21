@@ -151,4 +151,4 @@ reimplementing metrics.
 ## License
 
 Code is released under the MIT License (see `LICENSE`). Dataset and model artifacts are subject
-to the licenses of their underlying sources (notably the TACRED LDC license noted above).
+to the licenses of their underlying sources.
