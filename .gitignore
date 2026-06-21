@@ -62,3 +62,6 @@ Compact Relex Journal Paper/*
 figures/*
 
 CLAUDE.md
+
+# One-off generated dashboard (not part of the replication artifact)
+re_predictions_dashboard.html

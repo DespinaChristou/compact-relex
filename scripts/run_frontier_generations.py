@@ -459,7 +459,7 @@ def merge_frontier_results(output_dir: str = OUTPUT_DIR):
 async def async_main():
     parser = argparse.ArgumentParser(description="Run frontier LLM evaluations via OpenRouter (async)")
     parser.add_argument("--config", required=True, help="Path to generations.yaml")
-    parser.add_argument("--openrouter_key", default="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",
+    parser.add_argument("--openrouter_key", default=None,
                         help="OpenRouter API key (or set OPENROUTER_API_KEY env var)")
     parser.add_argument("--models", nargs="*", default=None,
                         choices=list(FRONTIER_MODELS.keys()),
