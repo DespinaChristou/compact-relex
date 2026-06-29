@@ -2,6 +2,8 @@
 
 Reproduction code, configurations, and links to released artifacts for the paper.
 
+**Paper:** [arXiv:2606.22606](https://arxiv.org/html/2606.22606v1)
+
 We fine-tune five small / sub-billion language models (360M-3B) for **relation extraction (RE)**
 across **general-domain** and **literary** text using QLoRA, under three domain-composition
 regimes (GenTune, LitTune, MixTune) and two prompt-conditioned tuning styles (0-shot, 2-shot),
@@ -39,7 +41,6 @@ The pipeline is config-driven: every stage reads a YAML file under `configs/`.
 
 > Browse a dataset at `https://huggingface.co/datasets/Despina/<repo>` and the checkpoint at
 > `https://huggingface.co/Despina/Qwen2.5-0.5B-Instruct-re_gentune-2-shot`.
-> Repositories are private during peer review and made public on acceptance.
 
 ## Requirements
 
@@ -139,12 +140,18 @@ reimplementing metrics.
 
 ## Citation
 
+If you use this work, please cite:
+
+> Christou, D., & Tsoumakas, G. (2026). Sub-Billion, Super-Frontier: Small Language Models Rival Zero-Shot Frontier LLMs on General and Literary Relation Extraction. *arXiv preprint arXiv:2606.22606.*
+
 ```bibtex
 @article{christou2026subbillion,
-  title   = {Sub-Billion, Super-Frontier: Fine-Tuned Small Language Models Rival
-             Zero-Shot Frontier LLMs on General and Literary Relation Extraction},
-  author  = {Christou, Despina and Tsoumakas, Grigorios},
-  year    = {2026}
+  title        = {Sub-Billion, Super-Frontier: Small Language Models Rival
+                  Zero-Shot Frontier LLMs on General and Literary Relation Extraction},
+  author       = {Christou, Despina and Tsoumakas, Grigorios},
+  journal      = {arXiv preprint arXiv:2606.22606},
+  year         = {2026},
+  url          = {https://arxiv.org/abs/2606.22606}
 }
 ```
 

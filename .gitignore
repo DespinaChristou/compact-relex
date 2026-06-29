@@ -56,8 +56,9 @@ huggingface_cache/
 .tmp/
 tmp/
 
-# Paper
+# Paper / manuscript folders (local-only)
 Compact Relex Journal Paper/*
+CompactRelex_Cambridge_Medium_Template/
 
 figures/*
 
