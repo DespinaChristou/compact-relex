@@ -16,6 +16,21 @@ baseline tuned in-domain likewise clears both frontier systems.
 
 The pipeline is config-driven: every stage reads a YAML file under `configs/`.
 
+## Findings dashboard
+
+An interactive, self-contained results dashboard is at
+[`dashboard/index.html`](dashboard/index.html). It walks through every headline result: the
+30-configuration x 9-benchmark F1 matrix (filterable, sortable heatmap), the per-dataset
+frontier comparison, the efficiency frontier (F1 per billion parameters, latency), within-family
+scaling and prompt-conditioning effects, the RoBERTa encoder and DAPT controls, and the
+significance tests. It has no external dependencies (all charts are hand-rolled SVG/CSS and the
+data is inlined), so you can open the file directly in any browser or host the `dashboard/`
+folder (e.g. on GitHub Pages). Regenerate it from the current evaluation tables with:
+
+```bash
+python scripts/build_dashboard.py   # -> dashboard/index.html
+```
+
 ## Released artifacts
 
 | Artifact | Where |
